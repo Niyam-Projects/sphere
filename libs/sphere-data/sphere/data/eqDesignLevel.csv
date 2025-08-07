@@ -1,0 +1,10 @@
+﻿ID,DesignLevel,Description
+1,PC,Pre Code
+2,LC,Low Code
+3,MC,Moderate Code
+4,HC,High Code
+5,LS,Low Code - Special
+6,MS,Moderate Code - Special
+7,HS,High Code - Special
+8,VC,Very High Code
+9,SC,Severe Code

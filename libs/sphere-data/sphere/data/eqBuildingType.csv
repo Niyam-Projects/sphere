@@ -1,0 +1,37 @@
+﻿ID,BldgType,Category,Description,GeneralClass
+1,W1,Wood,"Wood, Light Frame (= 5,000 sq. ft.)",w
+2,W2,Wood,"Wood, Commercial and Industrial Wood (>5,000 sq. ft.)",w
+3,S1L,Steel,Steel Moment Frame Low-Rise,s
+4,S1M,Steel,Steel Moment Frame Mid-Rise,s
+5,S1H,Steel,Steel Moment Frame High-Rise,s
+6,S2L,Steel,Steel Braced Frame Low-Rise,s
+7,S2M,Steel,Steel Braced Frame Mid-Rise,s
+8,S2H,Steel,Steel Braced Frame High-Rise,s
+9,S3,Steel,Steel Light Frame,s
+10,S4L,Steel,Steel Frame with Cast-in-Place Concrete Shear Walls Low-Rise,s
+11,S4M,Steel,Steel Frame with Cast-in-Place Concrete Shear Walls Mid-Rise,s
+12,S4H,Steel,Steel Frame with Cast-in-Place Concrete Shear Walls High-Rise,s
+13,S5L,Steel,Steel Frame with Unreinforced Masonry Infill Walls Low-Rise,s
+14,S5M,Steel,Steel Frame with Unreinforced Masonry Infill Walls Mid-Rise,s
+15,S5H,Steel,Steel Frame with Unreinforced Masonry Infill Walls High-Rise,s
+16,C1L,Concrete,Concrete Moment Frame Low-Rise,c
+17,C1M,Concrete,Concrete Moment Frame Mid-Rise,c
+18,C1H,Concrete,Concrete Moment Frame High-Rise,c
+19,C2L,Concrete,Concrete Shear Walls Low-Rise,c
+20,C2M,Concrete,Concrete Shear Walls Mid-Rise,c
+21,C2H,Concrete,Concrete Shear Walls High-Rise,c
+22,C3L,Concrete,Concrete Frame with Unreinforced Masonry Infill Walls Low-Rise,c
+23,C3M,Concrete,Concrete Frame with Unreinforced Masonry Infill Walls Mid-Rise,c
+24,C3H,Concrete,Concrete Frame with Unreinforced Masonry Infill Walls High-Rise,c
+25,PC1,Precast,Precast Concrete Tilt-Up Walls,c
+26,PC2L,Precast,Precast Concrete Frames with Concrete Shear Walls  Low-Rise,c
+27,PC2M,Precast,Precast Concrete Frames with Concrete Shear Walls  Mid-Rise,c
+28,PC2H,Precast,Precast Concrete Frames with Concrete Shear Walls  High-Rise,c
+29,RM1L,RM,Reinforced Masonry Bearing Walls with Wood or Metal Deck Diaphragms Low-Rise,m
+30,RM1M,RM,Reinforced Masonry Bearing Walls with Wood or Metal Deck Diaphragms Mid-Rise,m
+31,RM2L,RM,Reinforced Masonry Bearing Walls with Precast Concrete Diaphragms Low-Rise,m
+32,RM2M,RM,Reinforced Masonry Bearing Walls with Precast Concrete Diaphragms Mid-Rise,m
+33,RM2H,RM,Reinforced Masonry Bearing Walls with Precast Concrete Diaphragms High-Rise,m
+34,URML,URM,Unreinforced Masonry Bearing Walls Low-Rise,m
+35,URMM,URM,Unreinforced Masonry Bearing Walls High-Rise,m
+36,MH,MH,Manufactured Home,h
