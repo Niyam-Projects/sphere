@@ -1,26 +1,37 @@
 [project]
 name = "sphere-flood"
 version = "0.1.0"
-description = "Add your description here"
+description = "Flood vulnerability functions and analysis utilities built on sphere-core and sphere-data"
 readme = "README.md"
+long_description_content_type = "text/markdown"
+license = { text = "MIT" }
 authors = [
-    { name = "Troy Schmidt", email = "tschmidt@niaymit.com" }
+        { name = "Troy Schmidt", email = "tschmidt@niyamit.com" }
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "geopandas>=1.1.1",
-    "numpy>=2.2.6",
-    "rasterio>=1.4.3",
-    "sphere-core",
-    "sphere-data",
+        "geopandas>=1.1.1",
+        "numpy>=2.2.6",
+        "rasterio>=1.4.3",
+        "sphere-core",
+        "sphere-data",
 ]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/Niyam-Projects/sphere"
+Repository = "https://github.com/Niyam-Projects/sphere"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["sphere"]
+packages = ["sphere.flood"]
 
 [tool.uv.sources]
 sphere-core = { workspace = true }

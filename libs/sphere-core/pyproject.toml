@@ -1,22 +1,33 @@
 [project]
 name = "sphere-core"
 version = "0.1.0"
-description = "Add your description here"
+description = "Core utilities and schemas for the sphere flood project"
 readme = "README.md"
+long_description_content_type = "text/markdown"
+license = { text = "MIT" }
 authors = [
-    { name = "Troy Schmidt", email = "tschmidt@niyamit.com" }
+        { name = "Troy Schmidt", email = "tschmidt@niyamit.com" }
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "geopandas>=1.1.1",
+        "geopandas>=1.1.1",
 ]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/Niyam-Projects/sphere"
+Repository = "https://github.com/Niyam-Projects/sphere"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["sphere"]
+packages = ["sphere.core"]
 
 [tool.uv]
 package = true

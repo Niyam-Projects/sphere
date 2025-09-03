@@ -1,9 +1,11 @@
 [project]
 name = "sphere"
 version = "0.1.0"
-description = "Add your description here"
+description = "A modern Python implementation of HAZUS flood methodology for building vulnerability and loss estimation."
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [ { name = "NiyamIT, Inc." } ]
 dependencies = [
     "geopandas>=1.1.1",
     "pandas>=2.3.1",
