@@ -13,8 +13,8 @@ dependencies = [
         "geopandas>=1.1.1",
         "numpy>=2.2.6",
         "rasterio>=1.4.3",
-        "sphere-core",
-        "sphere-data",
+        "sphere-core>=0.1.0",
+        "sphere-data>=0.1.0",
 ]
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -36,3 +36,6 @@ packages = ["sphere.flood"]
 [tool.uv.sources]
 sphere-core = { workspace = true }
 sphere-data = { workspace = true }
+
+[tool.uv]
+package = true

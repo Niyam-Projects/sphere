@@ -1,5 +1,5 @@
 [project]
-name = "sphere"
+name = "sphere-repo"
 version = "0.1.0"
 description = "A modern Python implementation of HAZUS flood methodology for building vulnerability and loss estimation."
 readme = "README.md"

@@ -26,3 +26,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sphere.data"]
+
+[tool.hatch.build]
+include = ["sphere/data/*.csv"]
+
+[tool.uv]
+package = true

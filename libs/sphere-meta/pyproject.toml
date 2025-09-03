@@ -1,0 +1,26 @@
+[project]
+name = "sphere"
+version = "0.1.0"
+description = "Meta package that aggregates sphere-core, sphere-data and sphere-flood"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "sphere-core>=0.1.0",
+    "sphere-data>=0.1.0",
+    "sphere-flood>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+sphere-core = { workspace = true }
+sphere-data = { workspace = true }
+sphere-flood = { workspace = true }
+
+[tool.uv]
+package = false
+
+[tool.hatch.build.targets.wheel]
+packages = ["sphere_meta"]

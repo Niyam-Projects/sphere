@@ -13,13 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Install uv (astral-sh)
+        uses: astral-sh/setup-uv@v2
         with:
           python-version: '3.11'
-
-      - name: Install build tools
-        run: python -m pip install --upgrade pip build twine
 
       - name: Determine package dir
         id: pkg
@@ -37,16 +34,75 @@ jobs:
             exit 1
           fi
 
+      - name: Build wheels for package and workspace deps
+        run: |
+          python -m pip install --upgrade pip build
+          mkdir -p .build
+          (cd libs/sphere-core && python -m build -w -o ../../.build)
+          (cd libs/sphere-data && python -m build -w -o ../../.build)
+          (cd libs/sphere-flood && python -m build -w -o ../../.build)
+
+      - name: Install built wheels
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./.build/*.whl
+
+      - name: Run tests (uv)
+        run: |
+          uv run pytest -q
+
+      - name: Ensure build tools in uv env
+        run: |
+          uv run python -m pip install --upgrade pip build twine
+
       - name: Install system deps (optional)
         run: |
           sudo apt-get update
           sudo apt-get install -y gdal-bin libgdal-dev build-essential || true
 
-      - name: Build and upload to TestPyPI
+      - name: Build and upload to TestPyPI (uv)
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
           cd ${{ steps.pkg.outputs.pkg_dir }}
-          python -m build
-          python -m twine upload --repository testpypi dist/*
+          uv run python -m build
+          uv run python -m twine upload --repository testpypi dist/*
+
+      - name: Build and upload `sphere` meta-package (TestPyPI)
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          set -e
+          python - <<'PY'
+import tomli
+from packaging.version import Version
+from pathlib import Path
+files = [Path('libs/sphere-core/pyproject.toml'), Path('libs/sphere-data/pyproject.toml'), Path('libs/sphere-flood/pyproject.toml')]
+vers = []
+for f in files:
+    with open(f,'rb') as fh:
+        data = tomli.load(fh)
+    vers.append(data['project']['version'])
+high = max(vers, key=Version)
+print('meta_version=' + high)
+open('.meta_version','w').write(high)
+PY
+
+          rm -rf .build/meta || true
+          mkdir -p .build/meta
+          cp -r libs/sphere-meta/* .build/meta/
+
+          META_VER=$(cat .meta_version)
+          python - <<'PY'
+from pathlib import Path
+import re
+p = Path('.build/meta/pyproject.toml')
+s = p.read_text()
+s = re.sub(r'(?m)^version\s*=\s*".*"$', f'version = "{open(".meta_version").read().strip()}"', s, count=1)
+p.write_text(s)
+PY
+
+          (cd .build/meta && python -m build -w -o ../)
+          python -m twine upload --repository testpypi ./.build/sphere-$(cat .meta_version)-*.whl
