@@ -1,25 +1,29 @@
 [project]
-name = "sphere-repo"
+name = "sphere"
 version = "0.1.0"
 description = "A modern Python implementation of HAZUS flood methodology for building vulnerability and loss estimation."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [ { name = "NiyamIT, Inc." } ]
-dependencies = [
-    "geopandas>=1.1.1",
-    "pandas>=2.3.1",
-    "pytest>=8.4.1",
-    "pytest-cov>=6.2.1",
-    "typing>=3.10.0.0",
-]
+dependencies = []
+
+[project.scripts]
+sphere = "sphere:main"
+
+[build-system]
+requires = ["uv_build>=0.8.6,<0.9.0"]
+build-backend = "uv_build"
 
 [tool.uv.workspace]
-members = ["libs/*"]
-
+members = [
+    "packages/core",
+    "packages/data",
+    "packages/flood",
+]
 
 [dependency-groups]
 dev = [
-    "pyright>=1.1.403",
-    "ruff>=0.12.7",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
 ]

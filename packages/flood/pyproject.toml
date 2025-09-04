@@ -1,0 +1,30 @@
+[project]
+name = "sphere-flood"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Troy Schmidt", email = "schmidt.troy@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "geopandas>=1.1.1",
+    "numpy>=2.2.6",
+    "rasterio>=1.4.3",
+    "sphere-core",
+    "sphere-data",
+]
+
+[project.scripts]
+sphere-flood = "sphere.flood:main"
+
+[build-system]
+requires = ["uv_build>=0.8.6,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+sphere-core = { workspace = true }
+sphere-data = { workspace = true }
+
+[tool.uv.build-backend]
+module-name = "sphere.flood"
