@@ -219,7 +219,7 @@ wheels = [
 
 [[package]]
 name = "niyamit-sphere"
-version = "0.1.42"
+version = "0.1.43"
 source = { editable = "." }
 dependencies = [
     { name = "sphere-core" },
@@ -785,7 +785,7 @@ wheels = [
 
 [[package]]
 name = "sphere-core"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "geopandas" },
@@ -796,7 +796,7 @@ requires-dist = [{ name = "geopandas", specifier = ">=1.1.1" }]
 
 [[package]]
 name = "sphere-data"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/data" }
 dependencies = [
     { name = "sphere-core" },
@@ -807,7 +807,7 @@ requires-dist = [{ name = "sphere-core", editable = "packages/core" }]
 
 [[package]]
 name = "sphere-flood"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/flood" }
 dependencies = [
     { name = "geopandas" },

@@ -1,6 +1,6 @@
 [project]
 name = "niyamit-sphere"
-version = "0.1.42"
+version = "0.1.43"
 description = "A modern Python implementation of HAZUS flood methodology for building vulnerability and loss estimation."
 readme = "README.md"
 requires-python = ">=3.10"
