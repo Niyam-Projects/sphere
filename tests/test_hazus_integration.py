@@ -5,7 +5,7 @@ from pathlib import Path
 
 from sphere.flood.analysis.hazus_flood import HazusFloodAnalysis
 from sphere.flood.default_vulnerability import DefaultFloodVulnerability
-from tests.conftest import DummyBuildingPoints
+from .conftest import DummyBuildingPoints
 from sphere.core.schemas.abstract_raster_reader import AbstractRasterReader
 
 

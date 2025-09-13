@@ -24,11 +24,11 @@ jobs:
           TAG=${GITHUB_REF##refs/tags/}
           echo "tag=$TAG"
           if [[ $TAG == sphere-core-* ]]; then
-            echo "pkg_dir=libs/sphere-core" >> $GITHUB_OUTPUT
+            echo "pkg_dir=packages/core" >> $GITHUB_OUTPUT
           elif [[ $TAG == sphere-data-* ]]; then
-            echo "pkg_dir=libs/sphere-data" >> $GITHUB_OUTPUT
+            echo "pkg_dir=packages/data" >> $GITHUB_OUTPUT
           elif [[ $TAG == sphere-flood-* ]]; then
-            echo "pkg_dir=libs/sphere-flood" >> $GITHUB_OUTPUT
+            echo "pkg_dir=packages/flood" >> $GITHUB_OUTPUT
           else
             echo "Unknown tag format" >&2
             exit 1
@@ -36,39 +36,22 @@ jobs:
 
       - name: Build wheels for package and workspace deps
         run: |
-          python -m pip install --upgrade pip build
-          mkdir -p .build
-          # always build the workspace dependencies first
-          (cd libs/sphere-core && python -m build -w -o ../../.build)
-          (cd libs/sphere-data && python -m build -w -o ../../.build)
-          (cd libs/sphere-flood && python -m build -w -o ../../.build)
-
-      - name: Install built wheels
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install ./.build/*.whl
+          uv build --all-packages
 
       - name: Run tests (uv)
         run: |
           uv run pytest -q
 
-      - name: Ensure build tools in uv env
-        run: |
-          uv run python -m pip install --upgrade pip build twine
 
-      - name: Install system deps (optional)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gdal-bin libgdal-dev build-essential || true
-
-      - name: Build and upload (uv)
+      - name: Build and upload (uv publish)
         env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           cd ${{ steps.pkg.outputs.pkg_dir }}
+          # build the package (within uv environment) then publish using uv
           uv run python -m build
-          uv run python -m twine upload dist/*
+          # publish using uv which handles upload and index settings
+          uv publish --token "$UV_PUBLISH_TOKEN"
 
       - name: Build and upload `sphere` meta-package (PyPI)
         env:
@@ -76,17 +59,17 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           set -e
-          # compute highest version among workspace packages
-          python - <<'PY'
+      # compute highest version among workspace packages
+      python - <<'PY'
 import tomli
 from packaging.version import Version
 from pathlib import Path
-files = [Path('libs/sphere-core/pyproject.toml'), Path('libs/sphere-data/pyproject.toml'), Path('libs/sphere-flood/pyproject.toml')]
+files = [Path('packages/core/pyproject.toml'), Path('packages/data/pyproject.toml'), Path('packages/flood/pyproject.toml')]
 vers = []
 for f in files:
-    with open(f,'rb') as fh:
-        data = tomli.load(fh)
-    vers.append(data['project']['version'])
+  with open(f,'rb') as fh:
+    data = tomli.load(fh)
+  vers.append(data['project']['version'])
 high = max(vers, key=Version)
 print('meta_version=' + high)
 open('.meta_version','w').write(high)
@@ -95,7 +78,7 @@ PY
           # prepare a build dir and copy meta package source
           rm -rf .build/meta || true
           mkdir -p .build/meta
-          cp -r libs/sphere-meta/* .build/meta/
+          cp -r packages/sphere-meta/* .build/meta/
 
           # update version in copied pyproject.toml
           META_VER=$(cat .meta_version)
@@ -108,6 +91,7 @@ s = re.sub(r'(?m)^version\s*=\s*".*"$', f'version = "{open(".meta_version").read
 p.write_text(s)
 PY
 
-          # build and upload meta wheel
+          # build and publish meta wheel via uv
           (cd .build/meta && python -m build -w -o ../)
-          python -m twine upload ./.build/sphere-$(cat .meta_version)-*.whl
+          # publish the meta wheel artifact directly from .build
+          uv publish --token "${{ secrets.PYPI_API_TOKEN }}" ./.build/sphere-$(cat .meta_version)-*.whl

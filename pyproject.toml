@@ -1,19 +1,19 @@
 [project]
-name = "sphere"
-version = "0.1.0"
+name = "niyamit-sphere"
+version = "0.1.42"
 description = "A modern Python implementation of HAZUS flood methodology for building vulnerability and loss estimation."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [ { name = "NiyamIT, Inc." } ]
-dependencies = []
+dependencies = [
+    "sphere-core",
+    "sphere-data",
+    "sphere-flood",
+]
 
 [project.scripts]
 sphere = "sphere:main"
-
-[build-system]
-requires = ["uv_build>=0.8.6,<0.9.0"]
-build-backend = "uv_build"
 
 [tool.uv.workspace]
 members = [
@@ -22,8 +22,41 @@ members = [
     "packages/flood",
 ]
 
+[tool.uv.sources]
+sphere-flood = { workspace = true }
+sphere-core = { workspace = true }
+sphere-data = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Include the top-level `src` and each package's `src` so the wheel
+# will find packages located under those directories.
+packages = [
+    "packages/core/src/sphere",
+    "packages/data/src/sphere",
+    "packages/flood/src/sphere",
+]
+
+[tool.hatch.build.targets.sdist]
+packages = [
+    "packages/core/src/sphere",
+    "packages/data/src/sphere",
+    "packages/flood/src/sphere",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
 ]
+
+[tool.uv.build-backend]
+# Build the `sphere` package by aggregating workspace sources.
+# uv_build will use the entries in [tool.uv.sources] to collect each
+# workspace package's `src` directory and include them in the built
+# distribution for the `sphere` top-level package.
+module-name = "sphere"
+namespace = true

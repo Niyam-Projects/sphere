@@ -9,7 +9,7 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "sphere",
+    "niyamit-sphere",
     "sphere-core",
     "sphere-data",
     "sphere-flood",
@@ -215,6 +215,35 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f2/97/ebf4da567aa6827c909642694d71c9fcf53e5b504f2d96afea02718862f3/iniconfig-2.1.0.tar.gz", hash = "sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7", size = 4793, upload-time = "2025-03-19T20:09:59.721Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/e1/e6716421ea10d38022b952c159d5161ca1193197fb744506875fbb87ea7b/iniconfig-2.1.0-py3-none-any.whl", hash = "sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760", size = 6050, upload-time = "2025-03-19T20:10:01.071Z" },
+]
+
+[[package]]
+name = "niyamit-sphere"
+version = "0.1.42"
+source = { editable = "." }
+dependencies = [
+    { name = "sphere-core" },
+    { name = "sphere-data" },
+    { name = "sphere-flood" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "sphere-core", editable = "packages/core" },
+    { name = "sphere-data", editable = "packages/data" },
+    { name = "sphere-flood", editable = "packages/flood" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest-cov", specifier = ">=6.2.1" },
 ]
 
 [[package]]
@@ -755,27 +784,8 @@ wheels = [
 ]
 
 [[package]]
-name = "sphere"
-version = "0.1.0"
-source = { editable = "." }
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-cov" },
-]
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.4.1" },
-    { name = "pytest-cov", specifier = ">=6.2.1" },
-]
-
-[[package]]
 name = "sphere-core"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "geopandas" },
@@ -786,7 +796,7 @@ requires-dist = [{ name = "geopandas", specifier = ">=1.1.1" }]
 
 [[package]]
 name = "sphere-data"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/data" }
 dependencies = [
     { name = "sphere-core" },
@@ -797,7 +807,7 @@ requires-dist = [{ name = "sphere-core", editable = "packages/core" }]
 
 [[package]]
 name = "sphere-flood"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/flood" }
 dependencies = [
     { name = "geopandas" },

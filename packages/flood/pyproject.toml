@@ -1,6 +1,6 @@
 [project]
 name = "sphere-flood"
-version = "0.1.0"
+version = "0.1.1"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -28,3 +28,4 @@ sphere-data = { workspace = true }
 
 [tool.uv.build-backend]
 module-name = "sphere.flood"
+namespace = true
