@@ -17,14 +17,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Determine package dir
-        id: pkg
-        run: |
-          TAG=${GITHUB_REF##refs/tags/}
-          echo "tag=$TAG"
-          # Single test tag triggers publishing of the meta-package at the repo root
-          echo "pkg_dir=." >> $GITHUB_OUTPUT
-
       - name: Build wheels for package and workspace deps
         run: |
           uv build --all-packages

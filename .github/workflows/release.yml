@@ -17,22 +17,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Determine package dir
-        id: pkg
-        run: |
-          TAG=${GITHUB_REF##refs/tags/}
-          echo "tag=$TAG"
-          if [[ $TAG == sphere-core-* ]]; then
-            echo "pkg_dir=packages/core" >> $GITHUB_OUTPUT
-          elif [[ $TAG == sphere-data-* ]]; then
-            echo "pkg_dir=packages/data" >> $GITHUB_OUTPUT
-          elif [[ $TAG == sphere-flood-* ]]; then
-            echo "pkg_dir=packages/flood" >> $GITHUB_OUTPUT
-          else
-            echo "Unknown tag format" >&2
-            exit 1
-          fi
-
       - name: Build wheels for package and workspace deps
         run: |
           uv build --all-packages
