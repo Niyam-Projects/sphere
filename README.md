@@ -1,4 +1,7 @@
-# sphere
+# SPHERE: Spatial Platform for Hazard Evaluation and Risk Estimation
+
+Click the link to run the sample in Google Colab!
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Niyam-Projects/sphere/blob/main/examples/hazus_csv_sample.ipynb)
 
 A modern Python implementation of the HAZUS flood methodology for building
 vulnerability and loss estimation. This repository packages a set of libraries

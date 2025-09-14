@@ -1,11 +1,10 @@
 name: Release package
 
 on:
+  workflow_dispatch:
   push:
     tags:
-      - 'sphere-core-v*'
-      - 'sphere-data-v*'
-      - 'sphere-flood-v*'
+      - 'sphere-v*'
 
 jobs:
   publish:
@@ -42,56 +41,9 @@ jobs:
         run: |
           uv run pytest -q
 
-
       - name: Build and upload (uv publish)
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          cd ${{ steps.pkg.outputs.pkg_dir }}
-          # build the package (within uv environment) then publish using uv
-          uv run python -m build
           # publish using uv which handles upload and index settings
-          uv publish --token "$UV_PUBLISH_TOKEN"
-
-      - name: Build and upload `sphere` meta-package (PyPI)
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          set -e
-      # compute highest version among workspace packages
-      python - <<'PY'
-import tomli
-from packaging.version import Version
-from pathlib import Path
-files = [Path('packages/core/pyproject.toml'), Path('packages/data/pyproject.toml'), Path('packages/flood/pyproject.toml')]
-vers = []
-for f in files:
-  with open(f,'rb') as fh:
-    data = tomli.load(fh)
-  vers.append(data['project']['version'])
-high = max(vers, key=Version)
-print('meta_version=' + high)
-open('.meta_version','w').write(high)
-PY
-
-          # prepare a build dir and copy meta package source
-          rm -rf .build/meta || true
-          mkdir -p .build/meta
-          cp -r packages/sphere-meta/* .build/meta/
-
-          # update version in copied pyproject.toml
-          META_VER=$(cat .meta_version)
-          python - <<'PY'
-from pathlib import Path
-import re
-p = Path('.build/meta/pyproject.toml')
-s = p.read_text()
-s = re.sub(r'(?m)^version\s*=\s*".*"$', f'version = "{open(".meta_version").read().strip()}"', s, count=1)
-p.write_text(s)
-PY
-
-          # build and publish meta wheel via uv
-          (cd .build/meta && python -m build -w -o ../)
-          # publish the meta wheel artifact directly from .build
-          uv publish --token "${{ secrets.PYPI_API_TOKEN }}" ./.build/sphere-$(cat .meta_version)-*.whl
+          uv publish --check-url https://pypi.org/simple/ --token "$UV_PUBLISH_TOKEN"   
