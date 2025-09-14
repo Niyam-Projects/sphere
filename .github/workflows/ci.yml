@@ -23,16 +23,7 @@ jobs:
 
       - name: Build wheel artifacts for workspace packages
         run: |
-          python -m pip install --upgrade pip build
-          mkdir -p .build
-          for pkg in libs/sphere-core libs/sphere-data libs/sphere-flood; do
-            (cd $pkg && python -m build -w -o ../../.build)
-          done
-
-      - name: Install built wheels
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install ./.build/*.whl
+          uv build --all-packages 
 
       - name: Run tests
         run: |

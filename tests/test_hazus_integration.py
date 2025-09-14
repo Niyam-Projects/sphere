@@ -5,7 +5,7 @@ from pathlib import Path
 
 from sphere.flood.analysis.hazus_flood import HazusFloodAnalysis
 from sphere.flood.default_vulnerability import DefaultFloodVulnerability
-from tests.conftest import DummyBuildingPoints
+from .conftest import DummyBuildingPoints
 from sphere.core.schemas.abstract_raster_reader import AbstractRasterReader
 
 
@@ -21,7 +21,7 @@ class SimpleDepthGrid(AbstractRasterReader):
 
 
 def _read_lookup_tables():
-    base = Path("libs") / "sphere-data" / "sphere" / "data"
+    base = Path("packages") / "data" / "src" / "sphere" / "data"
     xdf = pd.read_csv(base / "flDmgXRef.csv")
     bdf = pd.read_csv(base / "flBldgDmgFn.csv")
     # set index for easier lookup
