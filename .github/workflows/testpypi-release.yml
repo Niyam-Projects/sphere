@@ -1,6 +1,7 @@
 name: TestPyPI Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'test-sphere-v*'
