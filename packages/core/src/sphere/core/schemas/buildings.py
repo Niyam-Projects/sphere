@@ -74,6 +74,12 @@ class Buildings:
         
         self.fields = FieldMapping(gdf, aliases, output_fields, overrides)
 
+        # Ensure damage-function ID output columns exist on the GeoDataFrame
+        for df_prop in ("bddf_id", "cddf_id", "iddf_id"):
+            col_name = self.fields.get_field_name(df_prop)
+            if col_name and col_name not in self._gdf.columns:
+                self._gdf[col_name] = None
+
     @property
     def gdf(self) -> gpd.GeoDataFrame:
         """Get the underlying GeoDataFrame."""
