@@ -416,3 +416,6 @@ FodyWeavers.xsd
 *.msm
 *.msp
 examples/flood_losses.csv
+examples/*.zip
+examples/*.gpkg
+examples/*.parquet
