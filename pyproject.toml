@@ -20,6 +20,7 @@ members = [
     "packages/core",
     "packages/data",
     "packages/flood",
+    "packages/tsunami",
 ]
 
 [tool.uv.sources]
