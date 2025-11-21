@@ -2,6 +2,7 @@ import pytest
 import pandas as pd
 import geopandas as gpd
 from sphere.core.schemas.buildings import Buildings
+from pathlib import Path
 
 
 class DummyBuildingPoints(Buildings):
@@ -388,3 +389,17 @@ def small_udf_buildings():
         df, geometry=gpd.points_from_xy(df.Longitude, df.Latitude), crs="EPSG:4326"
     )
     return DummyBuildingPoints(gdf=gdf)
+
+
+@pytest.fixture(scope="session")
+def test_data_dir():
+    """Return path to test data directory."""
+    return Path(__file__).parent / "data"
+
+
+@pytest.fixture(scope="session")
+def nsi_results_csv(test_data_dir):
+    """Return path to NSI results CSV file."""
+    csv_path = test_data_dir / "nsi_results.csv"
+    assert csv_path.exists(), f"NSI results CSV not found at {csv_path}"
+    return csv_path

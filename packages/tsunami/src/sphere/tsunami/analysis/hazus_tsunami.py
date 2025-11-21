@@ -62,16 +62,15 @@ class HazusTsunamiAnalysis:
         # TODO: Change out the buildings.fields to be the property access instead.
         
         gdf: gpd.GeoDataFrame = self.buildings.gdf
-        fields = self.buildings.fields
 
         # First assign the two values from the rasters
         # Assign depth values and bin them in 0.1 increments
-        depth_in_structure = (2.0 / 3.0 * 1250.0 / 381.0 * (self.depth_grid.get_value_vectorized(gdf.geometry))) - gdf[self.buildings.fields.first_floor_height]
-        gdf[self.buildings.fields.flood_depth] = depth_in_structure # np.maximum(0, np.floor(np.nan_to_num(depth_in_structure) / 0.1) * 0.1) 
+        depth_in_structure = (2.0 / 3.0 * 1250.0 / 381.0 * (self.depth_grid.get_value_vectorized(gdf.geometry))) - self.buildings.first_floor_height
+        self.buildings.flood_depth = depth_in_structure # np.maximum(0, np.floor(np.nan_to_num(depth_in_structure) / 0.1) * 0.1) 
 
         # Assign flux values and bin them in 50 increments, rounding down
         raw_flux = 2.0 / 3.0 * (1250.0 ** 3 / 381.0 ** 3) * self.momentum_flux.get_value_vectorized(gdf.geometry)
-        gdf[self.buildings.fields.flux] = raw_flux # 50 * np.floor(np.nan_to_num(raw_flux) / 50)
+        self.buildings.flux = raw_flux # 50 * np.floor(np.nan_to_num(raw_flux) / 50)
 
         # Then we need to apply vulnerabilities to get the median and betas and compute damage states
         self.fragility_function.compute_damage_states(self.buildings)
