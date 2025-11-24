@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 import geopandas as gpd
+import numpy as np
 from pathlib import Path
 from shapely.geometry import Point
 
@@ -56,6 +57,7 @@ def nsi_buildings_data():
         'content_cost': 'Hazus_Content_Values',
         'flood_depth': 'flood_depth',
         'flux': 'flux',
+        'eq_building_type': 'EqBldgTypeId_SI',
     }
     
     # Remove loss columns from the dataframe
@@ -77,10 +79,14 @@ def nsi_buildings_data():
 @pytest.fixture
 def mock_rasters(nsi_buildings_data):
     """Create mock raster readers using the CSV data."""
-    _, _, depth_values, flux_values = nsi_buildings_data
+    buildings, _, depth_values, flux_values = nsi_buildings_data
     
-    depth_raster = MockRasterReader(depth_values)
-    flux_raster = MockRasterReader(flux_values)
+    # depth_raster = MockRasterReader(depth_values)
+    # flux_raster = MockRasterReader(flux_values)
+    
+    # Actually we need to reverse the raster calculations that will happen later on for this test
+    depth_raster = MockRasterReader((depth_values + buildings.first_floor_height) / (2.0 / 3.0 * 1250.0 / 381.0))
+    flux_raster = MockRasterReader(flux_values / (2.0 / 3.0 * (1250.0 ** 3 / 381.0 ** 3)))
     
     return depth_raster, flux_raster
 
@@ -111,49 +117,51 @@ def test_tsunami_analysis_with_nsi_data(nsi_buildings_data, mock_rasters):
     # Compare computed losses with expected values
     # Use relative tolerance for floating point comparison
     rtol = 0.05  # 5% relative tolerance
-    
-    computed_building_loss = result_df[buildings.fields.building_loss].values
-    pd.testing.assert_allclose(
+    computed_building_loss = result_df[buildings.fields.get_field_name('building_loss')].values
+    pd.DataFrame(computed_building_loss).to_csv("computed_building_loss.csv")
+    pd.DataFrame(expected_losses['BldgLossUSD']).to_csv("expected_building_loss.csv")
+    pd.DataFrame(result_df['p_nsd_comp'].values).to_csv("computed_p_nsd_comp.csv")
+    np.testing.assert_allclose(
         computed_building_loss,
         expected_losses['BldgLossUSD'],
         rtol=rtol,
         err_msg="Building loss values don't match expected"
     )
     
-    computed_content_loss = result_df[buildings.fields.content_loss].values
-    pd.testing.assert_allclose(
+    computed_content_loss = result_df[buildings.fields.get_field_name('content_loss')].values
+    np.testing.assert_allclose(
         computed_content_loss,
         expected_losses['ContentLossUSD'],
         rtol=rtol,
         err_msg="Content loss values don't match expected"
     )
     
-    computed_relocation_loss = result_df[buildings.fields.relocation_loss].values
-    pd.testing.assert_allclose(
+    computed_relocation_loss = result_df[buildings.fields.get_field_name('relocation_loss')].values
+    np.testing.assert_allclose(
         computed_relocation_loss,
         expected_losses['RelocationLossUSD'],
         rtol=rtol,
         err_msg="Relocation loss values don't match expected"
     )
     
-    computed_income_loss = result_df[buildings.fields.income_loss].values
-    pd.testing.assert_allclose(
+    computed_income_loss = result_df[buildings.fields.get_field_name('income_loss')].values
+    np.testing.assert_allclose(
         computed_income_loss,
         expected_losses['IncomeLossUSD'],
         rtol=rtol,
         err_msg="Income loss values don't match expected"
     )
     
-    computed_rental_loss = result_df[buildings.fields.rental_loss].values
-    pd.testing.assert_allclose(
+    computed_rental_loss = result_df[buildings.fields.get_field_name('rental_loss')].values
+    np.testing.assert_allclose(
         computed_rental_loss,
         expected_losses['RentalLossUSD'],
         rtol=rtol,
         err_msg="Rental loss values don't match expected"
     )
     
-    computed_wage_loss = result_df[buildings.fields.wage_loss].values
-    pd.testing.assert_allclose(
+    computed_wage_loss = result_df[buildings.fields.get_field_name('wage_loss')].values
+    np.testing.assert_allclose(
         computed_wage_loss,
         expected_losses['WageLossUSD'],
         rtol=rtol,
@@ -180,6 +188,6 @@ def test_tsunami_analysis_basic_run(nsi_buildings_data, mock_rasters):
     # Basic assertions
     assert result_df is not None
     assert len(result_df) > 0
-    assert buildings.fields.building_loss in result_df.columns
-    assert buildings.fields.content_loss in result_df.columns
-    assert buildings.fields.relocation_loss in result_df.columns
+    assert buildings.fields.get_field_name('building_loss') in result_df.columns
+    assert buildings.fields.get_field_name('content_loss') in result_df.columns
+    assert buildings.fields.get_field_name('relocation_loss') in result_df.columns
