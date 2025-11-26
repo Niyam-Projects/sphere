@@ -155,9 +155,6 @@ class HazusTsunamiAnalysis:
                 structloss_fields.append(struct_loss_field)
         else:
             structloss_fields = "StructLoss"
-        print(len(structloss_fields))
-        print(len(merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].columns))
-        print(merged_df['ModStrRepair'])
         merged_df[structloss_fields] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModStrRepair'].values, axis=0).values / 100.0 +
             merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtStrRepair'].values, axis=0).values / 100.0 +
