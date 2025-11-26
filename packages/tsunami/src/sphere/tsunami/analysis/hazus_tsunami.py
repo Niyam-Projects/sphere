@@ -141,11 +141,28 @@ class HazusTsunamiAnalysis:
         merged_df['CmpCntRepair'] = np.where(merged_df['CmpCntRepair'] >= 50, 100, merged_df['CmpCntRepair'])
 
         # BldgLoss
-        merged_df['StructLoss'] = (merged_df[self.buildings.fields.get_field_name('building_cost')] * (
-            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')] * merged_df['ModStrRepair'] / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_str_extensive')] * merged_df['ExtStrRepair'] / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_str_complete')] * merged_df['CmpStrRepair'] / 100.0
-        )) 
+        # Create structloss fields based on flux return periods
+        flux_fields = self.buildings.fields.get_field_name('flux')
+        flux_fields = [field for field in (flux_fields if isinstance(flux_fields, list) else [flux_fields])]
+        import re
+        structloss_fields = []
+        if len(flux_fields) > 1:
+            for flux_field in flux_fields:
+                print(flux_field)
+                match = re.search(r"(_\d*yr)", flux_field)
+                print(match)
+                struct_loss_field = f"StructLoss{match.group(1)}"
+                structloss_fields.append(struct_loss_field)
+        else:
+            structloss_fields = "StructLoss"
+        print(len(structloss_fields))
+        print(len(merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].columns))
+        print(merged_df['ModStrRepair'])
+        merged_df[structloss_fields] = pd.DataFrame(
+            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModStrRepair'].values, axis=0).values / 100.0 +
+            merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtStrRepair'].values, axis=0).values / 100.0 +
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpStrRepair'].values, axis=0).values / 100.0
+        ).mul(merged_df[self.buildings.fields.get_field_name('building_cost')].values, axis=0)
         merged_df['NonStrLoss'] = (merged_df[self.buildings.fields.get_field_name('building_cost')] * (
             merged_df[self.buildings.fields.get_field_name('probability_nsd_moderate')] * (merged_df['ModNsaRepair'] + merged_df['ModNsdRepair']) / 100.0 +
             merged_df[self.buildings.fields.get_field_name('probability_nsd_extensive')] * (merged_df['ExtNsaRepair'] + merged_df['ExtNsdRepair']) / 100.0 +
