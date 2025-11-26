@@ -15,7 +15,7 @@ class Buildings:
         aliases = {
             "id": ["id", "building_id", "bldg_id", "fd_id"],
             "occupancy_type": ["occupancy_type", "occtype", "occupancy", "occ_type", "building_type"],
-            "first_floor_height": ["first_floor_height", "found_ht", "first_floor_ht", "ffh", "floor_height"],
+            "first_floor_height": ["first_floor_height", "found_ht", "first_floor_ht", "ffh", "floor_height", "FirstFloor"],
             "foundation_type": ["foundation_type", "fndtype", "found_type", "fnd_type"],
             "number_stories": ["number_stories", "num_story", "numstories", "stories", "num_floors", "floors"],
             "area": ["area", "sqft", "building_area", "floor_area"],
@@ -576,4 +576,377 @@ class Buildings:
     @probability_content_extensive.setter
     def probability_content_extensive(self, value: pd.Series) -> None:
         field_name = self._ensure_output_field("probability_content_extensive")
+        self._gdf[field_name] = value
+
+class ttfBuildings:
+    """
+    Base class for TTF building-related data with field mapping and data access.
+    """
+    
+    def __init__(self, gdf: gpd.GeoDataFrame, overrides: Dict[str, str] | None = None):
+        self._gdf = gdf
+        
+        # Define TTF building-specific aliases (all lowercase for case-insensitive matching)
+        aliases = {
+            "id": ["id", "nsiid"],
+            # "momflux": ["momflux", "flow_momentum", "momentum_flux"],
+            # "flowdepth": ["flowdepth", "flood_depth", "water_depth", "depth"],
+            "building_cost": ["buildingcostusd", "building_cost", "hazus_building_values", "val_struct", "cost", "replacement_cost", "building_value", "valstruct"],
+            "content_cost": ["contentcostusd", "content_cost", "hazus_content_values", "val_cont", "contents_cost", "valcont"],
+            "inventory_cost": ["inventorycostusd", "inventory_cost", "val_inv", "inv_cost"],
+            "first_floor_height": ["first_floor_height", "found_ht", "first_floor_ht", "ffh", "floor_height", "firstfloor"],
+            "eq_building_type": ["eqbldgtypeid", "eqbldgtypeid_si", "eq_building_type", "earthquake_building_type", "eqbldgtype"],
+            "eq_design_level": ["eqdesignlevelid", "eqdesignlevelid_si", "eq_design_level", "design_level", "eqdesignle"],
+            "occupancy_type": ["occupancy_type", "occtype", "occupancy", "occ_type", "building_type"],
+        }
+        
+        # Define output fields
+        output_fields = {
+            "NsiID": "NsiID",
+        }
+
+        # Grab all fields from gdf columns that start with "MomFlux" or "FlowDepth"
+        import re
+        flux_return_list = []
+        flood_return_list = []
+        for col in gdf.columns:
+            if col.lower().startswith("momflux"):
+                output_fields[col] = col
+                # Use regex to create an alias where the key value is "momflux" + the return period (e.g., "momflux100")
+                match = re.match(r"(momflux_)(\d+yr)", col.lower())
+                # if match:
+                #     alias_key = f"{match.group(1)}{match.group(2)}"
+                #     aliases[alias_key] = [col]
+                flux_return_list.append(col)
+            elif col.lower().startswith("flowdepth"):
+                output_fields[col] = col
+                # Use regex to create an alias where the key value is "flowdepth" + the return period (e.g., "flowdepth100")
+                match = re.match(r"(flowdepth_)(\d+yr)", col.lower())
+                # if match:
+                #     alias_key = f"{match.group(1)}{match.group(2)}"
+                #     aliases[alias_key] = [col]
+                flood_return_list.append(col)
+        aliases["flux"] = [flux_return_list]
+        aliases["flood_depth"] = [flood_return_list]
+            
+        # Check that momflux and flowdepth have same return periods
+        if len(flux_return_list) != len(flood_return_list):
+            raise ValueError("Mismatch between MomFlux and FlowDepth return periods in GeoDataFrame columns.")
+        else:
+            # Create building loss and content loss output fields based on return periods
+            return_periods = [re.search(r'(\d+yr)', item.lower()).group(1) for item in flux_return_list]
+            bldg_loss_list = ["building_loss_" + rp for rp in return_periods]
+            cont_loss_list = ["content_loss_" + rp for rp in return_periods]
+            str_comp_list = ["p_str_comp_" + rp for rp in return_periods]
+            str_none_list = ["p_str_none_" + rp for rp in return_periods]
+            str_mod_list = ["p_str_mod_" + rp for rp in return_periods]
+            str_ext_list = ["p_str_ext_" + rp for rp in return_periods]
+            nsd_comp_list = ["p_nsd_comp_" + rp for rp in return_periods]
+            nsd_none_list = ["p_nsd_none_" + rp for rp in return_periods]
+            nsd_mod_list = ["p_nsd_mod_" + rp for rp in return_periods]
+            nsd_ext_list = ["p_nsd_ext_" + rp for rp in return_periods]
+            cont_comp_list = ["p_cont_comp_" + rp for rp in return_periods]
+            cont_none_list = ["p_cont_none_" + rp for rp in return_periods]  
+            cont_mod_list = ["p_cont_mod_" + rp for rp in return_periods]    
+            cont_ext_list = ["p_cont_ext_" + rp for rp in return_periods]    
+            aliases["probability_str_complete"] = [str_comp_list]
+            aliases["probability_str_none"] = [str_none_list]
+            aliases["probability_str_moderate"] = [str_mod_list]
+            aliases["probability_str_extensive"] = [str_ext_list]
+            aliases["probability_nsd_complete"] = [nsd_comp_list]
+            aliases["probability_nsd_none"] = [nsd_none_list]
+            aliases["probability_nsd_moderate"] = [nsd_mod_list]
+            aliases["probability_nsd_extensive"] = [nsd_ext_list]
+            aliases["probability_content_complete"] = [cont_comp_list]
+            aliases["probability_content_none"] = [cont_none_list]
+            aliases["probability_content_moderate"] = [cont_mod_list]
+            aliases["probability_content_extensive"] = [cont_ext_list]
+            aliases["building_loss"] = [bldg_loss_list]
+            aliases["content_loss"] = [cont_loss_list]
+            for building, content in zip(bldg_loss_list, cont_loss_list):
+                output_fields[building] = building
+                output_fields[content] = content
+        self._gdf["Occupancy_Type"] = self._gdf["NsiID"].str.split(' ', expand=True)[0]
+
+        self.flux_return_list = flux_return_list
+        self.flood_return_list = flood_return_list
+        self.str_comp_list = str_comp_list
+        self.str_none_list = str_none_list
+        self.str_mod_list = str_mod_list
+        self.str_ext_list = str_ext_list
+        self.nsd_comp_list = nsd_comp_list
+        self.nsd_none_list = nsd_none_list
+        self.nsd_mod_list = nsd_mod_list
+        self.nsd_ext_list = nsd_ext_list
+        self.cont_comp_list = cont_comp_list
+        self.cont_none_list = cont_none_list
+        self.cont_mod_list = cont_mod_list
+        self.cont_ext_list = cont_ext_list
+        self.fields = FieldMapping(gdf, aliases, output_fields, overrides)
+
+    @property
+    def gdf(self) -> gpd.GeoDataFrame:
+        """Get the underlying GeoDataFrame."""
+        return self._gdf
+    
+    def _ensure_output_field(self, *property_names: str) -> str:
+        """Ensure output field exists in the GeoDataFrame and return its name."""
+        field_names = []
+        for property_name in property_names:
+            field_name = self.fields.get_field_name(property_name)
+            if field_name and field_name not in self._gdf.columns:
+                self._gdf[field_name] = pd.NA
+            field_names.append(field_name)
+        return field_names
+    
+    # Input Fields - assume they exist (FieldMapping validates this)
+    @property
+    def id(self) -> pd.Series:
+        field_name = self.fields.get_field_name("id")
+        return self._gdf[field_name]
+    
+    @property
+    def occupancy_type(self) -> pd.Series:
+        field_name = self.fields.get_field_name("occupancy_type")
+        return self._gdf[field_name]
+    
+    @property
+    def first_floor_height(self) -> pd.Series:
+        field_name = self.fields.get_field_name("first_floor_height")
+        return self._gdf[field_name]
+    
+    @property
+    def foundation_type(self) -> pd.Series:
+        field_name = self.fields.get_field_name("foundation_type")
+        return self._gdf[field_name]
+    
+    @property
+    def number_stories(self) -> pd.Series:
+        field_name = self.fields.get_field_name("number_stories")
+        return self._gdf[field_name]
+    
+    @property
+    def area(self) -> pd.Series:
+        field_name = self.fields.get_field_name("area")
+        return self._gdf[field_name]
+    
+    @property
+    def building_cost(self) -> pd.Series:
+        field_name = self.fields.get_field_name("building_cost")
+        return self._gdf[field_name]
+    
+    @property
+    def content_cost(self) -> pd.Series:
+        field_name = self.fields.get_field_name("content_cost")
+        return self._gdf[field_name]
+    
+    # Probability fields properties
+    @property
+    def probability_str_exceed_moderate(self) -> pd.Series:
+        field_name = self._ensure_output_field("probability_str_exceed_moderate")
+        return self._gdf[field_name]
+    
+    @probability_str_exceed_moderate.setter
+    def probability_str_exceed_moderate(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("probability_str_exceed_moderate")
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_str_exceed_extensive(self) -> pd.Series:
+        field_name = self._ensure_output_field("probability_str_exceed_extensive")
+        return self._gdf[field_name]
+    
+    @probability_str_exceed_extensive.setter
+    def probability_str_exceed_extensive(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("probability_str_exceed_extensive")
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_str_complete(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.str_comp_list)
+        return self._gdf[field_name]
+    
+    @probability_str_complete.setter
+    def probability_str_complete(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.str_comp_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_str_none(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.str_none_list)
+        return self._gdf[field_name]
+    
+    @probability_str_none.setter
+    def probability_str_none(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.str_none_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_str_moderate(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.str_mod_list)
+        return self._gdf[field_name]
+    
+    @probability_str_moderate.setter
+    def probability_str_moderate(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.str_mod_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_str_extensive(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.str_ext_list)
+        return self._gdf[field_name]
+    
+    @probability_str_extensive.setter
+    def probability_str_extensive(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.str_ext_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_nsd_exceed_moderate(self) -> pd.Series:
+        field_name = self._ensure_output_field("probability_nsd_exceed_moderate")
+        return self._gdf[field_name]
+    
+    @probability_nsd_exceed_moderate.setter
+    def probability_nsd_exceed_moderate(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("probability_nsd_exceed_moderate")
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_nsd_exceed_extensive(self) -> pd.Series:
+        field_name = self._ensure_output_field("probability_nsd_exceed_extensive")
+        return self._gdf[field_name]
+    
+    @probability_nsd_exceed_extensive.setter
+    def probability_nsd_exceed_extensive(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("probability_nsd_exceed_extensive")
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_nsd_complete(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.nsd_comp_list)
+        return self._gdf[field_name]
+    
+    @probability_nsd_complete.setter
+    def probability_nsd_complete(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.nsd_comp_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_nsd_none(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.nsd_none_list)
+        return self._gdf[field_name]
+    
+    @probability_nsd_none.setter
+    def probability_nsd_none(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.nsd_none_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_nsd_moderate(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.nsd_mod_list)
+        return self._gdf[field_name]
+    
+    @probability_nsd_moderate.setter
+    def probability_nsd_moderate(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.nsd_mod_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_nsd_extensive(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.nsd_ext_list)
+        return self._gdf[field_name]
+    
+    @probability_nsd_extensive.setter
+    def probability_nsd_extensive(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.nsd_ext_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_content_exceed_moderate(self) -> pd.Series:
+        field_name = self._ensure_output_field("probability_content_exceed_moderate")
+        return self._gdf[field_name]
+    
+    @probability_content_exceed_moderate.setter
+    def probability_content_exceed_moderate(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("probability_content_exceed_moderate")
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_content_exceed_extensive(self) -> pd.Series:
+        field_name = self._ensure_output_field("probability_content_exceed_extensive")
+        return self._gdf[field_name]
+    
+    @probability_content_exceed_extensive.setter
+    def probability_content_exceed_extensive(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("probability_content_exceed_extensive")
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_content_complete(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.cont_comp_list)
+        return self._gdf[field_name]
+    
+    @probability_content_complete.setter
+    def probability_content_complete(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.cont_comp_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_content_none(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.cont_none_list)
+        return self._gdf[field_name]
+    
+    @probability_content_none.setter
+    def probability_content_none(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.cont_none_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_content_moderate(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.cont_mod_list)
+        return self._gdf[field_name]
+    
+    @probability_content_moderate.setter
+    def probability_content_moderate(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.cont_mod_list)
+        self._gdf[field_name] = value
+        
+    @property
+    def probability_content_extensive(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(self.cont_ext_list)
+        return self._gdf[field_name]
+    
+    @probability_content_extensive.setter
+    def probability_content_extensive(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(self.cont_ext_list)
+        self._gdf[field_name] = value
+    # Output Fields - create if they don't exist
+    @property
+    def flux(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(*self.flux_return_list)
+        return self._gdf[field_name]
+    
+    @flux.setter
+    def flux(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(*self.flux_return_list)
+        self._gdf[field_name] = value
+    
+    @property
+    def flood_depth(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(*self.flood_return_list)
+        return self._gdf[field_name]
+    
+    @flood_depth.setter
+    def flood_depth(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(*self.flood_return_list)
+        self._gdf[field_name] = value
+
+    @property
+    def building_loss(self) -> pd.Series:
+        field_name = self._ensure_output_field("building_loss")
+        return self._gdf[field_name]
+    
+    @building_loss.setter
+    def building_loss(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("building_loss")
         self._gdf[field_name] = value

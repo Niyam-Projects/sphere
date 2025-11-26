@@ -41,6 +41,18 @@ class FieldMapping():
         Note: This method only returns matches found in the DataFrame columns.
         Fallback values are handled in discover_mappings.
         """
+
+        def map_lower(alias_list: List[str]) -> List[str]:
+            """Helper to create a lower-cased version of alias list for case-insensitive matching."""
+            # Check if items in alias_list are strings or lists
+            if all(isinstance(item, str) for item in alias_list):
+                return [alias.lower() for alias in alias_list]
+            elif all(isinstance(item, list) for item in alias_list):
+                lower_mapped = []
+                for sublist in alias_list:
+                    lower_mapped.append([alias.lower() for alias in sublist])
+                return lower_mapped
+
         # Create case-insensitive column lookup
         lower_cols = [col.lower() for col in df_columns]
         col_dict = {col.lower(): col for col in df_columns}
@@ -55,9 +67,9 @@ class FieldMapping():
         
         # 2. For input fields, try aliases in order of preference
         if property_name in self._input_fields:
-            for alias in self._aliases[property_name]:
-                if alias.lower() in lower_cols:
-                    return col_dict[alias.lower()]
+            for alias in map_lower(self._aliases[property_name]):
+                if alias in lower_cols:
+                    return col_dict[alias]
         
         # 3. For output fields, try direct name match
         elif property_name in self._output_fields:

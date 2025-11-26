@@ -65,7 +65,8 @@ class HazusTsunamiAnalysis:
 
         # First assign the two values from the rasters
         # Assign depth values and bin them in 0.1 increments
-        depth_in_structure = (2.0 / 3.0 * 1250.0 / 381.0 * (self.depth_grid.get_value_vectorized(gdf.geometry))) - self.buildings.first_floor_height
+        print("Calculating flood depth and flux for buildings...")
+        depth_in_structure = (2.0 / 3.0 * 1250.0 / 381.0 * (self.depth_grid.get_value_vectorized(gdf.geometry))) - self.buildings.first_floor_height.to_frame().values
         self.buildings.flood_depth = depth_in_structure # np.maximum(0, np.floor(np.nan_to_num(depth_in_structure) / 0.1) * 0.1) 
 
         # Assign flux values and bin them in 50 increments, rounding down
@@ -74,23 +75,56 @@ class HazusTsunamiAnalysis:
 
         # Then we need to apply vulnerabilities to get the median and betas and compute damage states
         self.fragility_function.compute_damage_states(self.buildings)
+        
+        # For multiple columns these have to be looped because loc can only be used with a 1-dimensional boolean index
+        # Operations are still vectorized (not iterating through rows)
+        str_com_cols = self.buildings.fields.get_field_name('probability_str_complete')
+        str_com_cols = [field for field in (str_com_cols if isinstance(str_com_cols, list) else [str_com_cols])]
+        nsd_com_cols = self.buildings.fields.get_field_name('probability_nsd_complete')
+        content_com_cols = self.buildings.fields.get_field_name('probability_content_complete')
+        nsd_mod_cols = self.buildings.fields.get_field_name('probability_nsd_moderate')
+        nsd_ext_cols = self.buildings.fields.get_field_name('probability_nsd_extensive')
+        nsd_none_cols = self.buildings.fields.get_field_name('probability_nsd_none')
+        content_mod_cols = self.buildings.fields.get_field_name('probability_content_moderate')
+        content_ext_cols = self.buildings.fields.get_field_name('probability_content_extensive')
+        content_none_cols = self.buildings.fields.get_field_name('probability_content_none')
+        # Listify these if they're strings
+        nsd_com_cols = [field for field in (nsd_com_cols if isinstance(nsd_com_cols, list) else [nsd_com_cols])]
+        content_com_cols = [field for field in (content_com_cols if isinstance(content_com_cols, list) else [content_com_cols])]
+        nsd_mod_cols = [field for field in (nsd_mod_cols if isinstance(nsd_mod_cols, list) else [nsd_mod_cols])]
+        nsd_ext_cols = [field for field in (nsd_ext_cols if isinstance(nsd_ext_cols, list) else [nsd_ext_cols])]
+        nsd_none_cols = [field for field in (nsd_none_cols if isinstance(nsd_none_cols, list) else [nsd_none_cols])]
+        content_mod_cols = [field for field in (content_mod_cols if isinstance(content_mod_cols, list) else [content_mod_cols])]
+        content_ext_cols = [field for field in (content_ext_cols if isinstance(content_ext_cols, list) else [content_ext_cols])]
+        content_none_cols = [field for field in (content_none_cols if isinstance(content_none_cols, list) else [content_none_cols])]
+        
+        for str_com_col, nsd_com_col, content_com_col, nsd_mod_col, nsd_ext_col, nsd_none_col, content_mod_col, content_ext_col, content_none_col in zip(
+            str_com_cols,
+            nsd_com_cols,
+            content_com_cols,
+            nsd_mod_cols,
+            nsd_ext_cols,
+            nsd_none_cols,
+            content_mod_cols,
+            content_ext_cols,
+            content_none_cols
+        ):
+            # Where the structural probability is over 70% we need to set the non-structural and contents probabilities to 100%
+            # Create a condition mask for buildings with complete structural probability > 70%
+            high_struct_damage_mask = gdf[str_com_col] > 0.7
 
-        # Where the structural probability is over 70% we need to set the non-structural and contents probabilities to 100%
-        # Create a condition mask for buildings with complete structural probability > 70%
-        high_struct_damage_mask = gdf[self.buildings.fields.get_field_name('probability_str_complete')] > 0.7
+            # Apply vectorized updates where the mask is True
+            # Set complete probabilities to 100%
+            gdf.loc[high_struct_damage_mask, nsd_com_col] = 1.0
+            gdf.loc[high_struct_damage_mask, content_com_col] = 1.0
 
-        # Apply vectorized updates where the mask is True
-        # Set complete probabilities to 100%
-        gdf.loc[high_struct_damage_mask, self.buildings.fields.get_field_name('probability_nsd_complete')] = 1.0
-        gdf.loc[high_struct_damage_mask, self.buildings.fields.get_field_name('probability_content_complete')] = 1.0
-
-        # Set moderate and extensive probabilities to 0%
-        gdf.loc[high_struct_damage_mask, self.buildings.fields.get_field_name('probability_nsd_moderate')] = 0.0
-        gdf.loc[high_struct_damage_mask, self.buildings.fields.get_field_name('probability_nsd_extensive')] = 0.0
-        gdf.loc[high_struct_damage_mask, self.buildings.fields.get_field_name('probability_nsd_none')] = 0.0
-        gdf.loc[high_struct_damage_mask, self.buildings.fields.get_field_name('probability_content_moderate')] = 0.0
-        gdf.loc[high_struct_damage_mask, self.buildings.fields.get_field_name('probability_content_extensive')] = 0.0
-        gdf.loc[high_struct_damage_mask, self.buildings.fields.get_field_name('probability_content_none')] = 0.0
+            # Set moderate and extensive probabilities to 0%
+            gdf.loc[high_struct_damage_mask, nsd_mod_col] = 0.0
+            gdf.loc[high_struct_damage_mask, nsd_ext_col] = 0.0
+            gdf.loc[high_struct_damage_mask, nsd_none_col] = 0.0
+            gdf.loc[high_struct_damage_mask, content_mod_col] = 0.0
+            gdf.loc[high_struct_damage_mask, content_ext_col] = 0.0
+            gdf.loc[high_struct_damage_mask, content_none_col] = 0.0
 
         # Need to merge with the economic parameters to get repair rates
         merged_df = pd.merge(
