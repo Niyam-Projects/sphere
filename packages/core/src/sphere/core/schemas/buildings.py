@@ -591,6 +591,7 @@ class ttfBuildings:
             "id": ["id", "nsiid"],
             # "momflux": ["momflux", "flow_momentum", "momentum_flux"],
             # "flowdepth": ["flowdepth", "flood_depth", "water_depth", "depth"],
+            "area": ["areasqft", "area", "sqft", "building_area", "floor_area"],
             "building_cost": ["buildingcostusd", "building_cost", "hazus_building_values", "val_struct", "cost", "replacement_cost", "building_value", "valstruct"],
             "content_cost": ["contentcostusd", "content_cost", "hazus_content_values", "val_cont", "contents_cost", "valcont"],
             "inventory_cost": ["inventorycostusd", "inventory_cost", "val_inv", "inv_cost"],
@@ -637,6 +638,10 @@ class ttfBuildings:
             return_periods = [re.search(r'(\d+yr)', item.lower()).group(1) for item in flux_return_list]
             bldg_loss_list = ["building_loss_" + rp for rp in return_periods]
             cont_loss_list = ["content_loss_" + rp for rp in return_periods]
+            reloc_loss_list = ["relocation_loss_" + rp for rp in return_periods]
+            income_loss_list = ["income_loss_" + rp for rp in return_periods]
+            rental_loss_list = ["rental_loss_" + rp for rp in return_periods]
+            wage_loss_list = ["wage_loss_" + rp for rp in return_periods]
             str_comp_list = ["p_str_comp_" + rp for rp in return_periods]
             str_none_list = ["p_str_none_" + rp for rp in return_periods]
             str_mod_list = ["p_str_mod_" + rp for rp in return_periods]
@@ -663,9 +668,16 @@ class ttfBuildings:
             aliases["probability_content_extensive"] = [cont_ext_list]
             aliases["building_loss"] = [bldg_loss_list]
             aliases["content_loss"] = [cont_loss_list]
-            for building, content in zip(bldg_loss_list, cont_loss_list):
+            aliases["relocation_loss"] = [reloc_loss_list]
+            aliases["income_loss"] = [income_loss_list]
+            aliases["rental_loss"] = [rental_loss_list]
+            aliases["wage_loss"] = [wage_loss_list]
+            for building, content, relocation, rent, wage in zip(bldg_loss_list, cont_loss_list, reloc_loss_list, rental_loss_list, wage_loss_list):
                 output_fields[building] = building
                 output_fields[content] = content
+                output_fields[relocation] = relocation
+                output_fields[rent] = rent
+                output_fields[wage] = wage
         self._gdf["Occupancy_Type"] = self._gdf["NsiID"].str.split(' ', expand=True)[0]
 
         self.flux_return_list = flux_return_list
@@ -949,4 +961,24 @@ class ttfBuildings:
     @building_loss.setter
     def building_loss(self, value: pd.Series) -> None:
         field_name = self._ensure_output_field("building_loss")
+        self._gdf[field_name] = value
+
+    @property
+    def content_loss(self) -> pd.Series:
+        field_name = self._ensure_output_field("content_loss")
+        return self._gdf[field_name]
+
+    @content_loss.setter
+    def content_loss(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("content_loss")
+        self._gdf[field_name] = value
+
+    @property
+    def relocation_loss(self) -> pd.Series:
+        field_name = self._ensure_output_field("relocation_loss")
+        return self._gdf[field_name]
+
+    @relocation_loss.setter
+    def relocation_loss(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("relocation_loss")
         self._gdf[field_name] = value

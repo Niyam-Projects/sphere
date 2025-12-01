@@ -146,67 +146,70 @@ class HazusTsunamiAnalysis:
         flux_fields = [field for field in (flux_fields if isinstance(flux_fields, list) else [flux_fields])]
         import re
         structloss_fields = []
+        nonstrloss_fields = []
         if len(flux_fields) > 1:
             for flux_field in flux_fields:
-                print(flux_field)
                 match = re.search(r"(_\d*yr)", flux_field)
-                print(match)
                 struct_loss_field = f"StructLoss{match.group(1)}"
                 structloss_fields.append(struct_loss_field)
+                nonstr_loss_field = f"NonStrLoss{match.group(1)}"
+                nonstrloss_fields.append(nonstr_loss_field)
         else:
             structloss_fields = "StructLoss"
+            nonstrloss_fields = "NonStrLoss"
+        print(structloss_fields)
+        print(nonstrloss_fields)
         merged_df[structloss_fields] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModStrRepair'].values, axis=0).values / 100.0 +
             merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtStrRepair'].values, axis=0).values / 100.0 +
             merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpStrRepair'].values, axis=0).values / 100.0
         ).mul(merged_df[self.buildings.fields.get_field_name('building_cost')].values, axis=0)
-        merged_df['NonStrLoss'] = (merged_df[self.buildings.fields.get_field_name('building_cost')] * (
-            merged_df[self.buildings.fields.get_field_name('probability_nsd_moderate')] * (merged_df['ModNsaRepair'] + merged_df['ModNsdRepair']) / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_nsd_extensive')] * (merged_df['ExtNsaRepair'] + merged_df['ExtNsdRepair']) / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_nsd_complete')] * (merged_df['CmpNsaRepair'] + merged_df['CmpNsdRepair']) / 100.0
-        ))
-        merged_df[self.buildings.fields.get_field_name('building_loss')] = merged_df['StructLoss'] + merged_df['NonStrLoss']
+        merged_df[nonstrloss_fields] = pd.DataFrame(
+            merged_df[self.buildings.fields.get_field_name('probability_nsd_moderate')].mul(merged_df['ModNsaRepair'].values + merged_df['ModNsdRepair'].values, axis=0).values / 100.0 +
+            merged_df[self.buildings.fields.get_field_name('probability_nsd_extensive')].mul(merged_df['ExtNsaRepair'].values + merged_df['ExtNsdRepair'].values, axis=0).values / 100.0 +
+            merged_df[self.buildings.fields.get_field_name('probability_nsd_complete')].mul(merged_df['CmpNsaRepair'].values + merged_df['CmpNsdRepair'].values, axis=0).values / 100.0
+        ).mul(merged_df[self.buildings.fields.get_field_name('building_cost')].values, axis=0)
+        merged_df[self.buildings.fields.get_field_name('building_loss')] = pd.DataFrame(merged_df[structloss_fields].values + merged_df[nonstrloss_fields].values)
 
         # ContentLoss
-        merged_df[self.buildings.fields.get_field_name('content_loss')] = (merged_df[self.buildings.fields.get_field_name('content_cost')] * (
-            merged_df[self.buildings.fields.get_field_name('probability_content_moderate')] * merged_df['ModCntRepair'] / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_content_extensive')] * merged_df['ExtCntRepair'] / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_content_complete')] * merged_df['CmpCntRepair'] / 100.0
-        ))
+        merged_df[self.buildings.fields.get_field_name('content_loss')] = pd.DataFrame(
+            merged_df[self.buildings.fields.get_field_name('probability_content_moderate')].mul(merged_df['ModCntRepair'].values, axis=0).values / 100.0 +
+            merged_df[self.buildings.fields.get_field_name('probability_content_extensive')].mul(merged_df['ExtCntRepair'].values, axis=0).values / 100.0 +
+            merged_df[self.buildings.fields.get_field_name('probability_content_complete')].mul(merged_df['CmpCntRepair'].values, axis=0).values / 100.0
+        ).mul(merged_df[self.buildings.fields.get_field_name('content_cost')].values, axis=0)
         
         # RelocLoss (broken down for clarity)
         pct_owner_occ_ratio = merged_df['PctOwnerOcc'] / 100.0
-        non_owner_prob = merged_df[self.buildings.fields.get_field_name('probability_str_moderate')] + merged_df[self.buildings.fields.get_field_name('probability_str_extensive')] + merged_df[self.buildings.fields.get_field_name('probability_str_complete')]
-        non_owner_loss = (1.0 - pct_owner_occ_ratio) * non_owner_prob * merged_df['DisruptCostPerMonth']
+        non_owner_prob = merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].add(merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].values, axis=0).add(merged_df[self.buildings.fields.get_field_name('probability_str_complete')].values, axis=0)
+        non_owner_loss = non_owner_prob.mul(merged_df['DisruptCostPerMonth'].values, axis=0).mul(1.0 - pct_owner_occ_ratio, axis=0)
 
-        disrupt_daily = merged_df['DisruptCostPerMonth'] / 30.0 # Assuming 30 days per month as implied
-        owner_mod_loss = merged_df[self.buildings.fields.get_field_name('probability_str_moderate')] * (disrupt_daily + merged_df['RentPerDay'] * merged_df['ModRecoveryTime'])
-        owner_ext_loss = merged_df[self.buildings.fields.get_field_name('probability_str_extensive')] * (disrupt_daily + merged_df['RentPerDay'] * merged_df['ExtRecoveryTime'])
-        owner_comp_loss = merged_df[self.buildings.fields.get_field_name('probability_str_complete')] * (disrupt_daily + merged_df['RentPerDay'] * merged_df['CmpRecoveryTime'])
-        owner_loss = pct_owner_occ_ratio * (owner_mod_loss + owner_ext_loss + owner_comp_loss)
-
-        merged_df[self.buildings.fields.get_field_name('relocation_loss')] = merged_df[self.buildings.fields.get_field_name('area')] * (non_owner_loss + owner_loss)
+        disrupt_daily = merged_df['DisruptCostPerMonth'].values / 30.0 # Assuming 30 days per month as implied
+        owner_mod_loss = merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(disrupt_daily + merged_df['RentPerDay'].mul(merged_df['ModRecoveryTime'].values, axis=0).values, axis=0)
+        owner_ext_loss = merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(disrupt_daily + merged_df['RentPerDay'].mul(merged_df['ExtRecoveryTime'].values, axis=0).values, axis=0)
+        owner_comp_loss = merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(disrupt_daily + merged_df['RentPerDay'].mul(merged_df['CmpRecoveryTime'].values, axis=0).values, axis=0)
+        owner_loss = (owner_mod_loss.add(owner_ext_loss.values, axis=0).add(owner_comp_loss.values, axis=0)).mul(pct_owner_occ_ratio.values, axis=0)
+        merged_df[self.buildings.fields.get_field_name('relocation_loss')] = pd.DataFrame((non_owner_loss.add(owner_loss.values, axis=0)).mul(merged_df[self.buildings.fields.get_field_name('area')].values, axis=0))
 
         # IncLoss (broken down for clarity)
-        merged_df[self.buildings.fields.get_field_name('income_loss')] = (1.0 - merged_df['IncomeRecap']) * merged_df[self.buildings.fields.get_field_name('area')] * merged_df['IncPerDay'] * (
-            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')] * (merged_df['ModRecoveryTime'] + merged_df['ModConstrTime'])  +
-            merged_df[self.buildings.fields.get_field_name('probability_str_extensive')] * (merged_df['ExtRecoveryTime'] + merged_df['ExtConstrTime']) +
-            merged_df[self.buildings.fields.get_field_name('probability_str_complete')] * (merged_df['CmpRecoveryTime'] + merged_df['CmpConstrTime'])
-        )
+        merged_df[self.buildings.fields.get_field_name('income_loss')] = pd.DataFrame(
+            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModRecoveryTime'].values + merged_df['ModConstrTime'].values, axis=0).values  +
+            merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtRecoveryTime'].values + merged_df['ExtConstrTime'].values, axis=0).values +
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values + merged_df['CmpConstrTime'].values, axis=0).values
+        ).mul(1.0 - merged_df['IncomeRecap'].values, axis=0).mul(merged_df[self.buildings.fields.get_field_name('area')].values, axis=0).mul(merged_df['IncPerDay'].values, axis=0)
 
         # RentLoss
-        merged_df[self.buildings.fields.get_field_name('rental_loss')] = (1.0 - pct_owner_occ_ratio) * merged_df[self.buildings.fields.get_field_name('area')] * merged_df['RentPerDay'] * (
-            (merged_df[self.buildings.fields.get_field_name('probability_str_moderate')] * merged_df['ModRecoveryTime'])  +
-            (merged_df[self.buildings.fields.get_field_name('probability_str_extensive')] * merged_df['ExtRecoveryTime']) +
-            (merged_df[self.buildings.fields.get_field_name('probability_str_complete')] * merged_df['CmpRecoveryTime'])
-        )
+        merged_df[self.buildings.fields.get_field_name('rental_loss')] = pd.DataFrame(
+            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModRecoveryTime'].values, axis=0).values  +
+            merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtRecoveryTime'].values, axis=0).values +
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values, axis=0).values
+        ).mul((1.0 - pct_owner_occ_ratio) * merged_df[self.buildings.fields.get_field_name('area')].values * merged_df['RentPerDay'].values, axis=0)
 
         # WageLoss (uses the same time calculation as IncLoss)
-        merged_df[self.buildings.fields.get_field_name('wage_loss')] = (1.0 - merged_df['WageRecap']) * merged_df[self.buildings.fields.get_field_name('area')] * merged_df['WagePerDay'] * (
-            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')] * (merged_df['ModRecoveryTime'] + merged_df['ModConstrTime'])  +
-            merged_df[self.buildings.fields.get_field_name('probability_str_extensive')] * (merged_df['ExtRecoveryTime'] + merged_df['ExtConstrTime']) +
-            merged_df[self.buildings.fields.get_field_name('probability_str_complete')] * (merged_df['CmpRecoveryTime'] + merged_df['CmpConstrTime'])
-        )
+        merged_df[self.buildings.fields.get_field_name('wage_loss')] = pd.DataFrame(
+            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModRecoveryTime'].values + merged_df['ModConstrTime'].values, axis=0).values  +
+            merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtRecoveryTime'].values + merged_df['ExtConstrTime'].values, axis=0).values +
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values + merged_df['CmpConstrTime'].values, axis=0).values
+        ).mul((1.0 - merged_df['WageRecap'].values) * merged_df[self.buildings.fields.get_field_name('area')].values * merged_df['WagePerDay'].values, axis=0)
 
         # InvLoss Needs eqTractDsBt Damage state probabilities
         """ weighted_inv_dmg = (

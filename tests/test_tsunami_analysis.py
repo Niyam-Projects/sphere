@@ -92,7 +92,7 @@ def nsi_buildings_data():
 @pytest.fixture
 def ttf_buildings_data():
     """Load NSI results CSV and prepare building data."""
-    csv_path = Path(__file__).parent / "data" / "Oahu_Output_TFF_python_HAZUS_Extended.csv"
+    csv_path = Path(__file__).parent / "data" / "Oahu_Output_TTF_Hazus_Extended_wArea.csv"
     df = pd.read_csv(csv_path)
     
     # Create geometry from X, Y coordinates
@@ -198,9 +198,9 @@ def test_tsunami_analysis_with_nsi_data(nsi_buildings_data, mock_rasters):
     # Use relative tolerance for floating point comparison
     rtol = 0.05  # 5% relative tolerance
     computed_building_loss = result_df[buildings.fields.get_field_name('building_loss')].values
-    pd.DataFrame(computed_building_loss).to_csv("computed_building_loss.csv")
-    pd.DataFrame(expected_losses['BldgLossUSD']).to_csv("expected_building_loss.csv")
-    pd.DataFrame(result_df['p_nsd_comp'].values).to_csv("computed_p_nsd_comp.csv")
+    # pd.DataFrame(computed_building_loss).to_csv("computed_building_loss.csv")
+    # pd.DataFrame(expected_losses['BldgLossUSD']).to_csv("expected_building_loss.csv")
+    # pd.DataFrame(result_df['p_nsd_comp'].values).to_csv("computed_p_nsd_comp.csv")
     np.testing.assert_allclose(
         computed_building_loss,
         expected_losses['BldgLossUSD'],
@@ -291,7 +291,7 @@ def test_ttf_tsunami_analysis(ttf_buildings_data, mock_rasters_ttf):
     # Calculate losses
     print("Calculating losses for TTF data...")
     result_df = analysis.calculate_losses()
-    result_df.to_csv("ttf_result_losses.csv")
+    # result_df.to_csv("ttf_result_losses.csv") # This file is quite large!
     
     # # Verify the analysis ran successfully
     assert result_df is not None
