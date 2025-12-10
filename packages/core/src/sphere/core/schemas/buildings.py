@@ -604,6 +604,14 @@ class ttfBuildings:
         # Define output fields
         output_fields = {
             "NsiID": "NsiID",
+            "building_loss_aal": "building_loss_aal",
+            "content_loss_aal": "content_loss_aal",
+            "relocation_loss_aal": "relocation_loss_aal",
+            "income_loss_aal": "income_loss_aal",
+            "rental_loss_aal": "rental_loss_aal",
+            "wage_loss_aal": "wage_loss_aal",
+            "gross_building_loss_aal": "gross_building_loss_aal",
+            "gross_content_loss_aal": "gross_content_loss_aal",
         }
 
         # Grab all fields from gdf columns that start with "MomFlux" or "FlowDepth"
@@ -981,4 +989,44 @@ class ttfBuildings:
     @relocation_loss.setter
     def relocation_loss(self, value: pd.Series) -> None:
         field_name = self._ensure_output_field("relocation_loss")
+        self._gdf[field_name] = value
+
+    @property
+    def building_loss_aal(self) -> pd.Series:
+        field_name = self._ensure_output_field("building_loss_aal")
+        return self._gdf[field_name]
+    
+    @building_loss_aal.setter
+    def building_loss_aal(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("building_loss_aal")
+        self._gdf[field_name] = value
+
+    @property
+    def content_loss_aal(self) -> pd.Series:
+        field_name = self._ensure_output_field("content_loss_aal")
+        return self._gdf[field_name]
+    
+    @content_loss_aal.setter
+    def content_loss_aal(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("content_loss_aal")
+        self._gdf[field_name] = value
+    
+    @property
+    def gross_building_loss_aal(self) -> pd.Series:
+        field_name = self._ensure_output_field("gross_building_loss_aal")
+        return self._gdf[field_name]
+    
+    @gross_building_loss_aal.setter
+    def gross_building_loss_aal(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("gross_building_loss_aal")
+        self._gdf[field_name] = value
+
+    @property
+    def gross_content_loss_aal(self) -> pd.Series:
+        field_name = self._ensure_output_field("gross_content_loss_aal")
+        return self._gdf[field_name]
+    
+    @gross_content_loss_aal.setter
+    def gross_content_loss_aal(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("gross_content_loss_aal")
         self._gdf[field_name] = value

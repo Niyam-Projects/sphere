@@ -222,5 +222,60 @@ class HazusTsunamiAnalysis:
             merged_df[self.buildings.fields.get_field_name('probability_str_moderate')] * (merged_df['ModInvDmg'] / 100.0)    
         ) """
 
+        # Compute Bulding Loss AAL
+        def calc_aal(losses_df):
+            # Get return periods from column names using regex
+            return_periods = []
+            for col in losses_df.columns.values:
+                # keep only the numeral
+                match = re.search(r"(\d+)(yr)", col)
+                if match:
+                    return_periods.append(int(match.group(1)))
+            
+            for p in return_periods:
+                sum_ann_loss = pd.DataFrame(0.0, index=losses_df.index, columns=['SumAnnLoss'])
+                if return_periods.index(p) == len(return_periods) - 1:
+                    sum_ann_loss['SumAnnLoss'] += (1 / p) * losses_df.iloc[:, return_periods.index(p)]
+                else:
+                    sum_ann_loss['SumAnnLoss'] += ((1 / p) - (1 / return_periods[return_periods.index(p) + 1])) * ((losses_df.iloc[:, return_periods.index(p)] + losses_df.iloc[:, return_periods.index(p) + 1]) / 2)
+                    print(sum_ann_loss)
+            return sum_ann_loss['SumAnnLoss']
+        
+        def adjust_loss_dedlim(losses_df, ded=0, lim=1000000000):
+            llosses_df = losses_df.sub(ded).clip(0, lim)
+            return llosses_df
 
+        # Compute Building Loss AAL
+        merged_df[self.buildings.fields.get_field_name('building_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('building_loss')])
+    
+        # Compute Content Loss AAL
+        merged_df[self.buildings.fields.get_field_name('content_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('content_loss')])
+
+        # Compute Relocation Loss AAL
+        merged_df[self.buildings.fields.get_field_name('relocation_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('relocation_loss')])
+
+        # Compute Income Loss AAL
+        merged_df[self.buildings.fields.get_field_name('income_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('income_loss')])
+
+        # Compute Rental Loss AAL
+        merged_df[self.buildings.fields.get_field_name('rental_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('rental_loss')])
+
+        # Compute Wage Loss AAL
+        merged_df[self.buildings.fields.get_field_name('wage_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('wage_loss')])
+
+        # Compute Building Loss AAL with deductible
+        merged_df[self.buildings.fields.get_field_name('gross_building_loss_aal')] = calc_aal(
+            adjust_loss_dedlim(merged_df[self.buildings.fields.get_field_name('building_loss')]),
+            5_000,
+            250_000
+        )
+
+        # Compute Content Loss AAL with deductible
+        merged_df[self.buildings.fields.get_field_name('gross_content_loss_aal')] = calc_aal(
+            adjust_loss_dedlim(merged_df[self.buildings.fields.get_field_name('content_loss')]),
+            1_250,
+            100_000
+        )
+
+        
         return merged_df
