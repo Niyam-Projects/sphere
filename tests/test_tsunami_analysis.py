@@ -135,9 +135,7 @@ def ttf_buildings_data():
     buildings = ttfBuildings(gdf=gdf) #, overrides=field_mapping)
     
     # Store the original depth and flux values for the mock rasters
-    print("Flood return list:", flood_return_list)
     depth_values = df[flood_return_list]
-    print("Flux return list:", flux_return_list)
     flux_values = df[flux_return_list]
     
     return buildings, depth_values, flux_values
@@ -291,7 +289,7 @@ def test_ttf_tsunami_analysis(ttf_buildings_data, mock_rasters_ttf):
     # Calculate losses
     print("Calculating losses for TTF data...")
     result_df = analysis.calculate_losses()
-    result_df.to_csv("ttf_result_losses.csv") # This file is quite large!
+    # result_df.to_csv("ttf_result_losses.csv") # This file is quite large!
     
     # # Verify the analysis ran successfully
     assert result_df is not None

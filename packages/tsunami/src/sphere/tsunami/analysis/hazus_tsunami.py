@@ -157,8 +157,6 @@ class HazusTsunamiAnalysis:
         else:
             structloss_fields = "StructLoss"
             nonstrloss_fields = "NonStrLoss"
-        print(structloss_fields)
-        print(nonstrloss_fields)
         merged_df[structloss_fields] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModStrRepair'].values, axis=0).values / 100.0 +
             merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtStrRepair'].values, axis=0).values / 100.0 +
@@ -238,8 +236,7 @@ class HazusTsunamiAnalysis:
                     sum_ann_loss['SumAnnLoss'] += (1 / p) * losses_df.iloc[:, return_periods.index(p)]
                 else:
                     sum_ann_loss['SumAnnLoss'] += ((1 / p) - (1 / return_periods[return_periods.index(p) + 1])) * ((losses_df.iloc[:, return_periods.index(p)] + losses_df.iloc[:, return_periods.index(p) + 1]) / 2)
-                    print(sum_ann_loss)
-            return sum_ann_loss['SumAnnLoss']
+            return sum_ann_loss['SumAnnLoss'].round(0)
         
         def adjust_loss_dedlim(losses_df, ded=0, lim=1000000000):
             llosses_df = losses_df.sub(ded).clip(0, lim)
