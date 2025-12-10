@@ -149,7 +149,7 @@ class HazusTsunamiAnalysis:
         nonstrloss_fields = []
         if len(flux_fields) > 1:
             for flux_field in flux_fields:
-                match = re.search(r"(_\d*yr)", flux_field)
+                match = re.search(r"(_\d*y)", flux_field)
                 struct_loss_field = f"StructLoss{match.group(1)}"
                 structloss_fields.append(struct_loss_field)
                 nonstr_loss_field = f"NonStrLoss{match.group(1)}"
@@ -226,7 +226,7 @@ class HazusTsunamiAnalysis:
             return_periods = []
             for col in losses_df.columns.values:
                 # keep only the numeral
-                match = re.search(r"(\d+)(yr)", col)
+                match = re.search(r"(\d+)(y)", col)
                 if match:
                     return_periods.append(int(match.group(1)))
             

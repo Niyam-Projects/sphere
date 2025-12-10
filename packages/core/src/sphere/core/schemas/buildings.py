@@ -621,19 +621,9 @@ class ttfBuildings:
         for col in gdf.columns:
             if col.lower().startswith("momflux"):
                 output_fields[col] = col
-                # Use regex to create an alias where the key value is "momflux" + the return period (e.g., "momflux100")
-                match = re.match(r"(momflux_)(\d+yr)", col.lower())
-                # if match:
-                #     alias_key = f"{match.group(1)}{match.group(2)}"
-                #     aliases[alias_key] = [col]
                 flux_return_list.append(col)
             elif col.lower().startswith("flowdepth"):
                 output_fields[col] = col
-                # Use regex to create an alias where the key value is "flowdepth" + the return period (e.g., "flowdepth100")
-                match = re.match(r"(flowdepth_)(\d+yr)", col.lower())
-                # if match:
-                #     alias_key = f"{match.group(1)}{match.group(2)}"
-                #     aliases[alias_key] = [col]
                 flood_return_list.append(col)
         aliases["flux"] = [flux_return_list]
         aliases["flood_depth"] = [flood_return_list]
@@ -643,7 +633,7 @@ class ttfBuildings:
             raise ValueError("Mismatch between MomFlux and FlowDepth return periods in GeoDataFrame columns.")
         else:
             # Create building loss and content loss output fields based on return periods
-            return_periods = [re.search(r'(\d+yr)', item.lower()).group(1) for item in flux_return_list]
+            return_periods = [re.search(r'(\d+y)', item.lower()).group(1) for item in flux_return_list]
             bldg_loss_list = ["building_loss_" + rp for rp in return_periods]
             cont_loss_list = ["content_loss_" + rp for rp in return_periods]
             reloc_loss_list = ["relocation_loss_" + rp for rp in return_periods]
