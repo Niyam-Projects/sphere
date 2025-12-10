@@ -291,7 +291,7 @@ def test_ttf_tsunami_analysis(ttf_buildings_data, mock_rasters_ttf):
     # Calculate losses
     print("Calculating losses for TTF data...")
     result_df = analysis.calculate_losses()
-    # result_df.to_csv("ttf_result_losses.csv") # This file is quite large!
+    result_df.to_csv("ttf_result_losses.csv") # This file is quite large!
     
     # # Verify the analysis ran successfully
     assert result_df is not None

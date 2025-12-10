@@ -265,16 +265,20 @@ class HazusTsunamiAnalysis:
 
         # Compute Building Loss AAL with deductible
         merged_df[self.buildings.fields.get_field_name('gross_building_loss_aal')] = calc_aal(
-            adjust_loss_dedlim(merged_df[self.buildings.fields.get_field_name('building_loss')]),
-            5_000,
-            250_000
+            adjust_loss_dedlim(
+                merged_df[self.buildings.fields.get_field_name('building_loss')],
+                5_000,
+                250_000
+            )
         )
 
         # Compute Content Loss AAL with deductible
         merged_df[self.buildings.fields.get_field_name('gross_content_loss_aal')] = calc_aal(
-            adjust_loss_dedlim(merged_df[self.buildings.fields.get_field_name('content_loss')]),
-            1_250,
-            100_000
+            adjust_loss_dedlim(
+                merged_df[self.buildings.fields.get_field_name('content_loss')],
+                1_250,
+                100_000
+            )
         )
 
         
