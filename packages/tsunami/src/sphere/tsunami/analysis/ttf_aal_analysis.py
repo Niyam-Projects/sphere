@@ -17,6 +17,10 @@ class ttfAALAnalysis:
         self,
         buildings: Buildings,
         vulnerability_func: AbstractVulnerabilityFunction,
+        bldg_deductible = 5_000,
+        bldg_cap = 250_000,
+        cont_deductible = 1_250,
+        cont_cap = 100_000,
     ):
         """
         Initializes a HazusFloodAnalysis object.
@@ -28,13 +32,24 @@ class ttfAALAnalysis:
         """
         self.buildings = buildings
         self.fragility_function = vulnerability_func
+        self.bldg_deductible = bldg_deductible
+        self.bldg_cap = bldg_cap
+        self.cont_deductible = cont_deductible
+        self.cont_cap = cont_cap
 
         with (
             resources.files("sphere.data")
             .joinpath("eqEconCapParams.csv")
-            .open("r", encoding="utf-8-sig") as economic_params_file
+            .open("r", encoding="utf-8-sig") as econ_cap_params_file
         ):
-            self.economic_params = pd.read_csv(economic_params_file)
+            self.econ_cap_params = pd.read_csv(econ_cap_params_file)
+        
+        with (
+            resources.files("sphere.data")
+            .joinpath("eqEconIncParams.csv")
+            .open("r", encoding="utf-8-sig") as econ_inc_params_file
+        ):
+            self.econ_inc_params = pd.read_csv(econ_inc_params_file)
         
 
     def calculate_losses(self):
@@ -112,12 +127,19 @@ class ttfAALAnalysis:
 
         # Need to merge with the economic parameters to get repair rates
         merged_df = pd.merge(
-            gdf, # Only merge needed columns initially
-            self.economic_params,
-            left_on=self.buildings.occupancy_type,  # Specify the column in the left DataFrame
-            right_on='Occupancy',  # Specify the column in the right DataFrame
+                pd.merge(
+                gdf, # Only merge needed columns initially
+                self.econ_cap_params,
+                left_on=self.buildings.occupancy_type,  # Specify the column in the left DataFrame
+                right_on='Occupancy',  # Specify the column in the right DataFrame
+                how='left',
+                suffixes=('', '_econCap') # Add suffix to avoid potential column name conflicts
+            ),
+            self.econ_inc_params,
+            left_on=self.buildings.occupancy_type,
+            right_on = 'Occupancy',
             how='left',
-            suffixes=('', '_frag') # Add suffix to avoid potential column name conflicts
+            suffixes=('', '_econInc')
         )
 
         # Compute economic losses
@@ -194,15 +216,15 @@ class ttfAALAnalysis:
         ).mul((1.0 - merged_df['WageRecap'].values) * merged_df[self.buildings.fields.get_field_name('area')].values * merged_df['WagePerDay'].values, axis=0)
 
         # InvLoss Needs eqTractDsBt Damage state probabilities
-        """ weighted_inv_dmg = (
-            gdf['PModDmg'] * gdf['ModInvDmg'] +
-            gdf['PExtDmg'] * gdf['ExtInvDmg'] +
-            gdf['PCompDmg'] * gdf['CmpInvDmg']
+        weighted_inv_dmg = pd.DataFrame(
+            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModInvDmg'], axis=0).values +
+            merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtInvDmg'], axis=0).values +
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpInvDmg'], axis=0).values
         ) / 100.0 # Apply the division by 100 from the SQL
 
-        merged_df[self.buildings.fields.get_field_name('inventory_loss')] = merged_df[self.buildings.fields.get_field_name('area')] * gdf['GrossSales'] * 1000.0 * (gdf['BusinessInv'] / 100.0) * (
-            merged_df[self.buildings.fields.get_field_name('probability_str_moderate')] * (merged_df['ModInvDmg'] / 100.0)    
-        ) """
+        merged_df[self.buildings.fields.get_field_name('inventory_loss')] = pd.DataFrame(
+            weighted_inv_dmg.mul(merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'] * 1000.0 * (merged_df['BusinessInv'] / 100.0).values, axis=0)
+        )
 
         # Compute Bulding Loss AAL
         def calc_aal(losses_df):
@@ -249,12 +271,17 @@ class ttfAALAnalysis:
         # Compute Wage Loss AAL
         merged_df[self.buildings.fields.get_field_name('wage_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('wage_loss')])
 
+        # Compute Inventory Loss AAL
+        merged_df[self.buildings.fields.get_field_name('inventory_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('inventory_loss')])
+
+        # TODO: add user input for deductibles and caps
+
         # Compute Building Loss AAL with deductible
         merged_df[self.buildings.fields.get_field_name('gross_building_loss_aal')] = calc_aal(
             adjust_loss_dedlim(
                 merged_df[self.buildings.fields.get_field_name('building_loss')],
-                5_000,
-                250_000
+                self.bldg_deductible,
+                self.bldg_cap,
             )
         )
 
@@ -262,8 +289,8 @@ class ttfAALAnalysis:
         merged_df[self.buildings.fields.get_field_name('gross_content_loss_aal')] = calc_aal(
             adjust_loss_dedlim(
                 merged_df[self.buildings.fields.get_field_name('content_loss')],
-                1_250,
-                100_000
+                self.cont_deductible,
+                self.cont_cap,
             )
         )
 

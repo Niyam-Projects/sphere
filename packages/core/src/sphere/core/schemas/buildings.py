@@ -640,6 +640,7 @@ class ttfBuildings:
             income_loss_list = ["income_loss_" + rp for rp in return_periods]
             rental_loss_list = ["rental_loss_" + rp for rp in return_periods]
             wage_loss_list = ["wage_loss_" + rp for rp in return_periods]
+            inv_loss_list = ["inventory_loss_" + rp for rp in return_periods]
             str_comp_list = ["p_str_comp_" + rp for rp in return_periods]
             str_none_list = ["p_str_none_" + rp for rp in return_periods]
             str_mod_list = ["p_str_mod_" + rp for rp in return_periods]
@@ -670,12 +671,14 @@ class ttfBuildings:
             aliases["income_loss"] = [income_loss_list]
             aliases["rental_loss"] = [rental_loss_list]
             aliases["wage_loss"] = [wage_loss_list]
-            for building, content, relocation, rent, wage in zip(bldg_loss_list, cont_loss_list, reloc_loss_list, rental_loss_list, wage_loss_list):
+            aliases["inventory_loss"] = [inv_loss_list]
+            for building, content, relocation, rent, wage, inv in zip(bldg_loss_list, cont_loss_list, reloc_loss_list, rental_loss_list, wage_loss_list, inv_loss_list):
                 output_fields[building] = building
                 output_fields[content] = content
                 output_fields[relocation] = relocation
                 output_fields[rent] = rent
                 output_fields[wage] = wage
+                output_fields[inv] = inv
         self._gdf["Occupancy_Type"] = self._gdf["NsiID"].str.split(' ', expand=True)[0]
 
         self.flux_return_list = flux_return_list
@@ -979,6 +982,16 @@ class ttfBuildings:
     @relocation_loss.setter
     def relocation_loss(self, value: pd.Series) -> None:
         field_name = self._ensure_output_field("relocation_loss")
+        self._gdf[field_name] = value
+    
+    @property
+    def inventory_loss(self) -> pd.Series:
+        field_name = self._ensure_output_field("inventory_loss")
+        return self._gdf[field_name]
+
+    @inventory_loss.setter
+    def inventory_loss(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("inventory_loss")
         self._gdf[field_name] = value
 
     @property

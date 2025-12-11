@@ -18,23 +18,51 @@ with app.setup:
 @app.cell
 def _():
     # Display all the csv files in the tsunami_transform_function folder
-    folder_path = Path("./examples/tsunami_transform_function")  # Change this to your folder path
+    folder_path = Path("./tests/data/new")  # Change this to your folder path
     _csv_files = sorted([f.name for f in folder_path.glob("*.csv")])
 
-
-    form = mo.ui.dropdown(
-        label="Select CSV file:",
-        options=_csv_files,
-        value=None,
+    form = mo.md(
+        """
+        ## Parameters\n
+        \n
+        ### Select CSV file: {csv_select}\n
+        ### Building Loss Deductible: {bldg_deductible}\n
+        ### Building Loss Cap: {bldg_cap}\n
+        ### Content Loss Deductible: {cont_deductible}\n
+        ### Content Loss Cap: {cont_cap}\n
+        """
+                ).batch(
+        csv_select = mo.ui.dropdown(
+            label="Select CSV file:",
+            options=_csv_files,
+            value=None,
+        ),
+        bldg_deductible = mo.ui.number(5_000),
+        bldg_cap = mo.ui.number(250_000),
+        cont_deductible = mo.ui.number(1_250),
+        cont_cap = mo.ui.number(100_000),
     ).form()
     form
+
     return folder_path, form
 
 
 @app.cell
 def _(folder_path, form):
-    mo.stop(form.value is None, "Please select a CSV file to continue")
-    _csv_file = folder_path / form.value
+    mo.stop(form.value is None or form.value["csv_select"] is None, "Please select a CSV file to continue")
+
+    _csv_file = mo.cli_args().get("file") or folder_path / form.value["csv_select"]
+    if mo.running_in_notebook:
+        _bldg_deductible = int(form.value["bldg_deductible"])
+        _bldg_cap = int(form.value["bldg_cap"])
+        _cont_deductible = int(form.value["cont_deductible"])
+        _cont_cap = int(form.value["cont_cap"])
+    
+    else:
+        _bldg_deductible = int(mo.cli_args().get("bldg_deductible") or 5_000)
+        _bldg_cap = int(mo.cli_args().get("bldg_cap") or 250_000)
+        _cont_deductible = int(mo.cli_args().get("cont_deductible") or 1_250)
+        _cont_cap = int(mo.cli_args().get("cont_cap") or 100_000)
     _df = pd.read_csv(_csv_file)
 
     # Create geometry from X, Y coordinates
@@ -45,6 +73,10 @@ def _(folder_path, form):
     analysis = ttfAALAnalysis(
         buildings=buildings,
         vulnerability_func=DefaultTsunamiVulnerability(),
+        bldg_deductible = _bldg_deductible,
+        bldg_cap = _bldg_cap,
+        cont_deductible = _cont_deductible,
+        cont_cap = _cont_cap,
     )
 
     results = analysis.calculate_losses()
@@ -65,7 +97,7 @@ def _(form):
     export_form = (
         mo.md('''
         **Export Results to CSV**
-    
+
         {filename}
         ''')
         .batch(
@@ -86,21 +118,21 @@ def _(export_form, results):
     if export_form.value and export_form.value["filename"]:
         # Get the filename from the form
         filename = export_form.value["filename"]
-    
+
         # Ensure .csv extension
         if not filename.endswith('.csv'):
             filename += '.csv'
-    
+
         # Create outputs folder if it doesn't exist
         output_dir = Path('outputs')
         output_dir.mkdir(exist_ok=True)
-    
+
         # Full path for the CSV file
         output_path = output_dir / filename
-    
+
         # Export the GeoDataFrame to CSV
         results.to_csv(output_path, index=False)
-    
+
         # Show success message
         result = mo.md(f"✅ Successfully exported to `{output_path}`")
     else:
