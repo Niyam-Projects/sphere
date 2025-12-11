@@ -241,6 +241,9 @@ class HazusTsunamiAnalysis:
         def adjust_loss_dedlim(losses_df, ded=0, lim=1000000000):
             llosses_df = losses_df.sub(ded).clip(0, lim)
             return llosses_df
+        
+        if len(flux_fields) == 1:
+            return merged_df
 
         # Compute Building Loss AAL
         merged_df[self.buildings.fields.get_field_name('building_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('building_loss')])
