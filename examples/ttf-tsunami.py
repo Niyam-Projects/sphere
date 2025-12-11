@@ -94,6 +94,7 @@ def _(results):
 @app.cell
 def _(form):
     # Create the form
+    form
     export_form = (
         mo.md('''
         **Export Results to CSV**
@@ -116,22 +117,23 @@ def _(form):
 @app.cell
 def _(export_form, results):
     if export_form.value and export_form.value["filename"]:
-        # Get the filename from the form
-        filename = export_form.value["filename"]
-
-        # Ensure .csv extension
-        if not filename.endswith('.csv'):
-            filename += '.csv'
-
-        # Create outputs folder if it doesn't exist
-        output_dir = Path('outputs')
-        output_dir.mkdir(exist_ok=True)
-
-        # Full path for the CSV file
-        output_path = output_dir / filename
-
-        # Export the GeoDataFrame to CSV
-        results.to_csv(output_path, index=False)
+        with mo.status.spinner(subtitle="Saving csv file ...") as _spinner:
+            # Get the filename from the form
+            filename = export_form.value["filename"]
+    
+            # Ensure .csv extension
+            if not filename.endswith('.csv'):
+                filename += '.csv'
+    
+            # Create outputs folder if it doesn't exist
+            output_dir = Path('outputs')
+            output_dir.mkdir(exist_ok=True)
+    
+            # Full path for the CSV file
+            output_path = output_dir / filename
+    
+            # Export the GeoDataFrame to CSV
+            results.to_csv(output_path, index=False)
 
         # Show success message
         result = mo.md(f"✅ Successfully exported to `{output_path}`")
