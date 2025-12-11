@@ -610,6 +610,7 @@ class ttfBuildings:
             "income_loss_aal": "income_loss_aal",
             "rental_loss_aal": "rental_loss_aal",
             "wage_loss_aal": "wage_loss_aal",
+            "inventory_loss_aal": "inventory_loss_aal",
             "gross_building_loss_aal": "gross_building_loss_aal",
             "gross_content_loss_aal": "gross_content_loss_aal",
         }
@@ -1012,6 +1013,16 @@ class ttfBuildings:
     @content_loss_aal.setter
     def content_loss_aal(self, value: pd.Series) -> None:
         field_name = self._ensure_output_field("content_loss_aal")
+        self._gdf[field_name] = value
+    
+    @property
+    def inventory_loss_aal(self) -> pd.Series:
+        field_name = self._ensure_output_field("inventory_loss_aal")
+        return self._gdf[field_name]
+    
+    @inventory_loss_aal.setter
+    def inventory_loss_aal(self, value: pd.Series) -> None:
+        field_name = self._ensure_output_field("inventory_loss_aal")
         self._gdf[field_name] = value
     
     @property
