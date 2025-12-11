@@ -230,13 +230,15 @@ class HazusTsunamiAnalysis:
                 if match:
                     return_periods.append(int(match.group(1)))
             
+            sum_ann_loss = pd.DataFrame(0.0, index=losses_df.index, columns=[return_periods])
             for p in return_periods:
-                sum_ann_loss = pd.DataFrame(0.0, index=losses_df.index, columns=['SumAnnLoss'])
                 if return_periods.index(p) == len(return_periods) - 1:
-                    sum_ann_loss['SumAnnLoss'] += (1 / p) * losses_df.iloc[:, return_periods.index(p)]
+                    sum_ann_loss[p] = ((1 / p) * losses_df.iloc[:, return_periods.index(p)])
                 else:
-                    sum_ann_loss['SumAnnLoss'] += ((1 / p) - (1 / return_periods[return_periods.index(p) + 1])) * ((losses_df.iloc[:, return_periods.index(p)] + losses_df.iloc[:, return_periods.index(p) + 1]) / 2)
-            return sum_ann_loss['SumAnnLoss'].round(0)
+                    # print(((1 / p) - (1 / return_periods[return_periods.index(p) + 1])) * ((losses_df.iloc[:, return_periods.index(p)] + losses_df.iloc[:, return_periods.index(p) + 1]) / 2).head(1))
+                    sum_ann_loss[p] = ((1 / p) - (1 / return_periods[return_periods.index(p) + 1])) * ((losses_df.iloc[:, return_periods.index(p)] + losses_df.iloc[:, return_periods.index(p) + 1]) / 2)
+            sum_ann_loss['SumAnnLoss'] = sum_ann_loss.loc[:].sum(axis=1)
+            return sum_ann_loss['SumAnnLoss']
         
         def adjust_loss_dedlim(losses_df, ded=0, lim=1000000000):
             llosses_df = losses_df.sub(ded).clip(0, lim)
