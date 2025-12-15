@@ -161,6 +161,7 @@ class HazusTsunamiAnalysis:
         # Compute economic losses
         # For Tsunami it uses the EQ economic capacity parameters so we need to adjust any values >= 50 to 100.
         merged_df['CmpCntRepair'] = np.where(merged_df['CmpCntRepair'] >= 50, 100, merged_df['CmpCntRepair'])
+        merged_df['CmpInvDmg'] = np.where(merged_df['CmpInvDmg'] >= 50, 100, merged_df['CmpInvDmg'])
 
         # BldgLoss
         # Create structloss fields based on flux return periods
