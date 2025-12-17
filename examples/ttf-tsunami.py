@@ -18,13 +18,11 @@ with app.setup:
 @app.cell
 def _():
     # Display all the csv files in the tsunami_transform_function folder
-    folder_path = Path("./tests/data/new")  # Change this to your folder path
+    folder_path = Path("./examples/tsunami_transform_function/")  # Change this to your folder path
     _csv_files = sorted([f.name for f in folder_path.glob("*.csv")])
 
     form = mo.md(
         """
-        ## Parameters\n
-        \n
         ### Select CSV file: {csv_select}\n
         ### Building Loss Deductible: {bldg_deductible}\n
         ### Building Loss Cap: {bldg_cap}\n
@@ -33,7 +31,6 @@ def _():
         """
                 ).batch(
         csv_select = mo.ui.dropdown(
-            label="Select CSV file:",
             options=_csv_files,
             value=None,
         ),
@@ -41,9 +38,8 @@ def _():
         bldg_cap = mo.ui.number(250_000),
         cont_deductible = mo.ui.number(1_250),
         cont_cap = mo.ui.number(100_000),
-    ).form()
+    ).form(bordered=True, label="## **Parameters**")
     form
-
     return folder_path, form
 
 
@@ -57,7 +53,7 @@ def _(folder_path, form):
         _bldg_cap = int(form.value["bldg_cap"])
         _cont_deductible = int(form.value["cont_deductible"])
         _cont_cap = int(form.value["cont_cap"])
-    
+
     else:
         _bldg_deductible = int(mo.cli_args().get("bldg_deductible") or 5_000)
         _bldg_cap = int(mo.cli_args().get("bldg_cap") or 250_000)
@@ -86,8 +82,40 @@ def _(folder_path, form):
 
 
 @app.cell
-def _(results):
-    results[['NsiID', 'EqBldgType', 'EqDesignLe', 'ValStruct', 'ValCont', 'building_loss_aal', 'content_loss_aal', 'gross_building_loss_aal', 'gross_content_loss_aal', 'building_loss_10y', 'building_loss_25y', 'building_loss_50y', 'building_loss_72y', 'building_loss_100y', 'building_loss_150y', 'building_loss_200y', 'building_loss_250y', 'building_loss_475y', 'building_loss_750y', 'building_loss_975y', 'building_loss_1500y', 'building_loss_2475y', 'building_loss_3000y']]
+def _(form):
+    mo.stop(form.value is None or form.value["csv_select"] is None)
+    columns_form = mo.md(
+        """
+        ### View Columns: {cols_select}\n
+        """
+                ).batch(
+        cols_select = mo.ui.dropdown(
+            options=[
+                "building_loss",
+                "content_loss",
+                "inventory_loss",
+                "wage_loss",
+                "rental_loss",
+                "relocation_loss",
+                "income_loss",
+            ],
+            value="building_loss",
+            allow_select_none=False,
+        ),
+    ).form(bordered=True, label="## **Select Loss Columns for View**")
+    columns_form
+    return (columns_form,)
+
+
+@app.cell
+def _(columns_form, results):
+    view_columns = ['NsiID', 'EqBldgType', 'EqDesignLe', 'ValStruct', 'ValCont']
+    if columns_form.value:
+        cols_to_add = [col for col in list(results.columns.values) if columns_form.value["cols_select"] in col]
+    else:
+        cols_to_add = [col for col in list(results.columns.values) if "building_loss" in col]
+    view_columns += cols_to_add
+    results[view_columns]
     return
 
 
@@ -97,8 +125,6 @@ def _(form):
     form
     export_form = (
         mo.md('''
-        **Export Results to CSV**
-
         {filename}
         ''')
         .batch(
@@ -107,7 +133,7 @@ def _(form):
                 placeholder="Enter filename (without .csv)"
             )
         )
-        .form(bordered=True, label="Export")
+        .form(bordered=True, label="## **Export Results to CSV**")
     )
 
     export_form if form.value else mo.md('Run analysis first.')
@@ -120,18 +146,18 @@ def _(export_form, results):
         with mo.status.spinner(subtitle="Saving csv file ...") as _spinner:
             # Get the filename from the form
             filename = export_form.value["filename"]
-    
+
             # Ensure .csv extension
             if not filename.endswith('.csv'):
                 filename += '.csv'
-    
+
             # Create outputs folder if it doesn't exist
             output_dir = Path('outputs')
             output_dir.mkdir(exist_ok=True)
-    
+
             # Full path for the CSV file
             output_path = output_dir / filename
-    
+
             # Export the GeoDataFrame to CSV
             results.to_csv(output_path, index=False)
 
