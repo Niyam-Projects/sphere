@@ -680,7 +680,6 @@ class ttfBuildings:
                 output_fields[rent] = rent
                 output_fields[wage] = wage
                 output_fields[inv] = inv
-        self._gdf["Occupancy_Type"] = self._gdf["NsiID"].str.split(' ', expand=True)[0]
 
         self.flux_return_list = flux_return_list
         self.flood_return_list = flood_return_list
