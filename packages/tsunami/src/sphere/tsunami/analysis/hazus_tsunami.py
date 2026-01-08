@@ -236,9 +236,9 @@ class HazusTsunamiAnalysis:
 
         # InvLoss Needs eqTractDsBt Damage state probabilities
         weighted_inv_dmg = pd.DataFrame(
-            merged_df[self.buildings.fields.get_field_name('probability_content_moderate')].mul(merged_df['ModInvDmg'], axis=0).values +
-            merged_df[self.buildings.fields.get_field_name('probability_content_extensive')].mul(merged_df['ExtInvDmg'], axis=0).values +
-            merged_df[self.buildings.fields.get_field_name('probability_content_complete')].mul(merged_df['CmpInvDmg'], axis=0).values
+            merged_df[self.buildings.fields.get_field_name('probability_nsd_moderate')].mul(merged_df['ModInvDmg'], axis=0).values +
+            merged_df[self.buildings.fields.get_field_name('probability_nsd_extensive')].mul(merged_df['ExtInvDmg'], axis=0).values +
+            merged_df[self.buildings.fields.get_field_name('probability_nsd_complete')].mul(merged_df['CmpInvDmg'], axis=0).values
         ) / 100.0 # Apply the division by 100 from the SQL
 
         inventory_value = merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'] * merged_df['BusinessInv'] / 100
