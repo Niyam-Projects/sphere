@@ -3,6 +3,9 @@ import pandas as pd
 import geopandas as gpd
 from sphere.core.schemas.buildings import Buildings
 from sphere.core.schemas.abstract_vulnerability_function import AbstractVulnerabilityFunction
+import warnings
+# Pandas performance warnings are largely unnecessary and are generated even if the performance is acceptable.
+warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
 try:
     # Python 3.9+
@@ -96,7 +99,6 @@ class ttfAALAnalysis:
         content_mod_cols = [field for field in (content_mod_cols if isinstance(content_mod_cols, list) else [content_mod_cols])]
         content_ext_cols = [field for field in (content_ext_cols if isinstance(content_ext_cols, list) else [content_ext_cols])]
         content_none_cols = [field for field in (content_none_cols if isinstance(content_none_cols, list) else [content_none_cols])]
-        print(str_com_cols)
         for str_com_col, nsd_com_col, content_com_col, nsd_mod_col, nsd_ext_col, nsd_none_col, content_mod_col, content_ext_col, content_none_col in zip(
             str_com_cols,
             nsd_com_cols,
@@ -130,13 +132,13 @@ class ttfAALAnalysis:
                 pd.merge(
                 gdf, # Only merge needed columns initially
                 self.econ_cap_params,
-                left_on=self.buildings.occupancy_type,  # Specify the column in the left DataFrame
+                left_on=self.buildings.fields.get_field_name("occupancy_type"),  # Specify the column in the left DataFrame
                 right_on='Occupancy',  # Specify the column in the right DataFrame
                 how='left',
                 suffixes=('', '_econCap') # Add suffix to avoid potential column name conflicts
             ),
             self.econ_inc_params,
-            left_on=self.buildings.occupancy_type,
+            left_on=self.buildings.fields.get_field_name("occupancy_type"),
             right_on = 'Occupancy',
             how='left',
             suffixes=('', '_econInc')

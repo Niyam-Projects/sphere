@@ -4,6 +4,9 @@ import geopandas as gpd
 from sphere.core.schemas.buildings import Buildings
 from sphere.core.schemas.abstract_vulnerability_function import AbstractVulnerabilityFunction
 from sphere.core.schemas.abstract_raster_reader import AbstractRasterReader
+import warnings
+# Pandas performance warnings are largely unnecessary and are generated even if the performance is acceptable.
+warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
 try:
     # Python 3.9+
@@ -146,13 +149,13 @@ class HazusTsunamiAnalysis:
                 pd.merge(
                 gdf, # Only merge needed columns initially
                 self.econ_cap_params,
-                left_on=self.buildings.occupancy_type,  # Specify the column in the left DataFrame
+                left_on=self.buildings.fields.get_field_name("occupancy_type"),  # Specify the column in the left DataFrame
                 right_on='Occupancy',  # Specify the column in the right DataFrame
                 how='left',
                 suffixes=('', '_econCap') # Add suffix to avoid potential column name conflicts
             ),
             self.econ_inc_params,
-            left_on=self.buildings.occupancy_type,
+            left_on=self.buildings.fields.get_field_name("occupancy_type"),
             right_on = 'Occupancy',
             how='left',
             suffixes=('', '_econInc')
