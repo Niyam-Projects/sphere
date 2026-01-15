@@ -85,7 +85,7 @@ class HazusTsunamiAnalysis:
         # Assign depth values and bin them in 0.1 increments
         print("Calculating flood depth and flux for buildings...")
         depth_in_structure = (2.0 / 3.0 * 1250.0 / 381.0 * (self.depth_grid.get_value_vectorized(gdf.geometry))) - self.buildings.first_floor_height.to_frame().values
-        self.buildings.flood_depth = depth_in_structure # np.maximum(0, np.floor(np.nan_to_num(depth_in_structure) / 0.1) * 0.1) 
+        self.buildings.depth_in_structure = depth_in_structure # np.maximum(0, np.floor(np.nan_to_num(depth_in_structure) / 0.1) * 0.1) 
 
         # Assign flux values and bin them in 50 increments, rounding down
         raw_flux = 2.0 / 3.0 * (1250.0 ** 3 / 381.0 ** 3) * self.momentum_flux.get_value_vectorized(gdf.geometry)

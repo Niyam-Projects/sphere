@@ -76,6 +76,12 @@ class ttfAALAnalysis:
         
         gdf: gpd.GeoDataFrame = self.buildings.gdf
 
+        # Compute depth in structure (flood_depth - first_floor_height) for NSD and content damage
+        # Clamp to 0 minimum - negative values mean water doesn't reach structure (no damage)
+        flood_depth_cols = self.buildings.fields.get_field_name('flood_depth')
+        ffh_field = self.buildings.fields.get_field_name('first_floor_height')
+        self.buildings.depth_in_structure = gdf[flood_depth_cols].sub(gdf[ffh_field], axis=0).clip(lower=0)
+
         self.fragility_function.compute_damage_states(self.buildings)
         
         # For multiple columns these have to be looped because loc can only be used with a 1-dimensional boolean index

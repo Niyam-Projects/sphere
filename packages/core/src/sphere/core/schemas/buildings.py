@@ -653,7 +653,11 @@ class ttfBuildings:
             cont_comp_list = ["p_cont_comp_" + rp for rp in return_periods]
             cont_none_list = ["p_cont_none_" + rp for rp in return_periods]  
             cont_mod_list = ["p_cont_mod_" + rp for rp in return_periods]    
-            cont_ext_list = ["p_cont_ext_" + rp for rp in return_periods]    
+            cont_ext_list = ["p_cont_ext_" + rp for rp in return_periods]
+            depth_in_structure_list = ["depth_in_structure_" + rp for rp in return_periods]
+            aliases["depth_in_structure"] = [depth_in_structure_list]
+            for dis in depth_in_structure_list:
+                output_fields[dis] = dis
             aliases["probability_str_complete"] = [str_comp_list]
             aliases["probability_str_none"] = [str_none_list]
             aliases["probability_str_moderate"] = [str_mod_list]
@@ -695,6 +699,7 @@ class ttfBuildings:
         self.cont_none_list = cont_none_list
         self.cont_mod_list = cont_mod_list
         self.cont_ext_list = cont_ext_list
+        self.depth_in_structure_list = depth_in_structure_list
         self.fields = FieldMapping(gdf, aliases, output_fields, overrides)
 
     @property
@@ -952,6 +957,16 @@ class ttfBuildings:
     @flood_depth.setter
     def flood_depth(self, value: pd.DataFrame) -> None:
         field_name = self._ensure_output_field(*self.flood_return_list)
+        self._gdf[field_name] = value
+
+    @property
+    def depth_in_structure(self) -> pd.DataFrame:
+        field_name = self._ensure_output_field(*self.depth_in_structure_list)
+        return self._gdf[field_name]
+    
+    @depth_in_structure.setter
+    def depth_in_structure(self, value: pd.DataFrame) -> None:
+        field_name = self._ensure_output_field(*self.depth_in_structure_list)
         self._gdf[field_name] = value
 
     @property
