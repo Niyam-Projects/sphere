@@ -6,6 +6,7 @@ app = marimo.App(width="medium")
 with app.setup:
     # Initialization code that runs before all other cells
     import marimo as mo
+    import re
     import geopandas as gpd
     import pandas as pd
     from shapely.geometry import Point
@@ -82,6 +83,41 @@ def _(folder_path, form):
 
 
 @app.cell
+def _(results):
+    # 1. Define the base loss categories to aggregate
+    _loss_categories = [
+        "building_loss", "content_loss", "inventory_loss",
+        "wage_loss", "rental_loss", "relocation_loss", "income_loss"
+    ]
+
+    # 2. Extract unique return periods as integers for numeric sorting
+    _period_map = {}
+    for _col in results.columns:
+        # Matches 'MomFlux_' followed by digits and then 'y'
+        _match = re.search(r"MomFlux_(\d+)y", _col)
+        if _match:
+            _years = int(_match.group(1))
+            # Map the integer years to the standardized suffix string
+            _period_map[_years] = f"_{_years}y"
+
+    # 3. Iterate through sorted integers to ensure numeric order (e.g., 25, 50, 100, 2500)
+    for _years in sorted(_period_map.keys()):
+        _sfx = _period_map[_years]
+
+        # Identify columns that exist for this specific return period
+        _cols_to_sum = [
+            f"{_cat}{_sfx}" for _cat in _loss_categories 
+            if f"{_cat}{_sfx}" in results.columns
+        ]
+
+        if _cols_to_sum:
+            # Vectorized sum added to the GeoDataFrame
+            _target_col_name = f"total_economic_loss{_sfx}"
+            results[_target_col_name] = results[_cols_to_sum].sum(axis=1)
+    return
+
+
+@app.cell
 def _(form):
     mo.stop(form.value is None or form.value["csv_select"] is None)
     columns_form = mo.md(
@@ -91,6 +127,7 @@ def _(form):
                 ).batch(
         cols_select = mo.ui.dropdown(
             options=[
+                "total_economic_loss",
                 "building_loss",
                 "content_loss",
                 "inventory_loss",
@@ -99,7 +136,7 @@ def _(form):
                 "relocation_loss",
                 "income_loss",
             ],
-            value="building_loss",
+            value="total_economic_loss",
             allow_select_none=False,
         ),
     ).form(bordered=True, label="## **Select Loss Columns for View**")
