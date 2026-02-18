@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.18.4"
+__generated_with = "0.19.11"
 app = marimo.App(width="medium")
 
 with app.setup:
@@ -9,11 +9,33 @@ with app.setup:
     import re
     import geopandas as gpd
     import pandas as pd
+    from datetime import datetime
     from shapely.geometry import Point
     from pathlib import Path
     from sphere.core.schemas.buildings import ttfBuildings
     from sphere.tsunami.analysis.ttf_aal_analysis import ttfAALAnalysis
     from sphere.tsunami.default_vulnerability import DefaultTsunamiVulnerability
+
+
+@app.cell(hide_code=True)
+def _():
+    import importlib.metadata
+    try:
+        __sphere_version__ = importlib.metadata.version("niyamit-sphere")
+        __tsunami_version__ = importlib.metadata.version("tsunami")
+    except importlib.metadata.PackageNotFoundError:
+        # Handle the case where the package is not installed
+        __sphere_version__ = "unknown"
+        __tsunami_version__ = "unknown"
+
+    _sphere_msg = f"SPHERE version: {__sphere_version__}"
+    _tsunami_msg = f"Tsunami version: {__tsunami_version__}"
+
+    mo.vstack([
+        mo.md(_sphere_msg),
+        mo.md(_tsunami_msg),
+    ])
+    return (__sphere_version__,)
 
 
 @app.cell
@@ -87,7 +109,7 @@ def _(results):
     # 1. Define the base loss categories to aggregate
     _loss_categories = [
         "building_loss", "content_loss", "inventory_loss",
-        "wage_loss", "rental_loss", "relocation_loss", "income_loss"
+        "wage_loss", "rental_loss", "relocation_loss", "income_loss",
     ]
 
     # 2. Extract unique return periods as integers for numeric sorting
@@ -157,8 +179,9 @@ def _(columns_form, results):
 
 
 @app.cell
-def _(form):
+def _(__sphere_version__, form):
     # Create the form
+    _current_date = datetime.now().strftime("%Y%M%d%H%S")
     form
     export_form = (
         mo.md('''
@@ -167,6 +190,7 @@ def _(form):
         .batch(
             filename=mo.ui.text(
                 label="CSV Filename",
+                value=f"results_{_current_date}_v{__sphere_version__.replace('.', '_')}",
                 placeholder="Enter filename (without .csv)"
             )
         )

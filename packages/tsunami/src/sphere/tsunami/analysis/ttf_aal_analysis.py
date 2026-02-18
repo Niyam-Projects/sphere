@@ -177,12 +177,14 @@ class ttfAALAnalysis:
         merged_df[structloss_fields] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModStrRepair'].values, axis=0).values / 100.0 +
             merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtStrRepair'].values, axis=0).values / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpStrRepair'].values, axis=0).values / 100.0
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpStrRepair'].values, axis=0).values / 100.0,
+            dtype=float
         ).mul(merged_df[self.buildings.fields.get_field_name('building_cost')].values, axis=0)
         merged_df[nonstrloss_fields] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_nsd_moderate')].mul(merged_df['ModNsaRepair'].values + merged_df['ModNsdRepair'].values, axis=0).values / 100.0 +
             merged_df[self.buildings.fields.get_field_name('probability_nsd_extensive')].mul(merged_df['ExtNsaRepair'].values + merged_df['ExtNsdRepair'].values, axis=0).values / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_nsd_complete')].mul(merged_df['CmpNsaRepair'].values + merged_df['CmpNsdRepair'].values, axis=0).values / 100.0
+            merged_df[self.buildings.fields.get_field_name('probability_nsd_complete')].mul(merged_df['CmpNsaRepair'].values + merged_df['CmpNsdRepair'].values, axis=0).values / 100.0,
+            dtype=float
         ).mul(merged_df[self.buildings.fields.get_field_name('building_cost')].values, axis=0)
         merged_df[self.buildings.fields.get_field_name('building_loss')] = pd.DataFrame(merged_df[structloss_fields].values + merged_df[nonstrloss_fields].values)
 
@@ -190,7 +192,8 @@ class ttfAALAnalysis:
         merged_df[self.buildings.fields.get_field_name('content_loss')] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_content_moderate')].mul(merged_df['ModCntRepair'].values, axis=0).values / 100.0 +
             merged_df[self.buildings.fields.get_field_name('probability_content_extensive')].mul(merged_df['ExtCntRepair'].values, axis=0).values / 100.0 +
-            merged_df[self.buildings.fields.get_field_name('probability_content_complete')].mul(merged_df['CmpCntRepair'].values, axis=0).values / 100.0
+            merged_df[self.buildings.fields.get_field_name('probability_content_complete')].mul(merged_df['CmpCntRepair'].values, axis=0).values / 100.0,
+            dtype=float
         ).mul(merged_df[self.buildings.fields.get_field_name('content_cost')].values, axis=0)
         
         # RelocLoss (broken down for clarity)
@@ -203,40 +206,45 @@ class ttfAALAnalysis:
         owner_ext_loss = merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(disrupt_daily + merged_df['RentPerDay'].mul(merged_df['ExtRecoveryTime'].values, axis=0).values, axis=0)
         owner_comp_loss = merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(disrupt_daily + merged_df['RentPerDay'].mul(merged_df['CmpRecoveryTime'].values, axis=0).values, axis=0)
         owner_loss = (owner_mod_loss.add(owner_ext_loss.values, axis=0).add(owner_comp_loss.values, axis=0)).mul(pct_owner_occ_ratio.values, axis=0)
-        merged_df[self.buildings.fields.get_field_name('relocation_loss')] = pd.DataFrame((non_owner_loss.add(owner_loss.values, axis=0)).mul(merged_df[self.buildings.fields.get_field_name('area')].values, axis=0))
+        merged_df[self.buildings.fields.get_field_name('relocation_loss')] = pd.DataFrame((non_owner_loss.add(owner_loss.values, axis=0)).mul(merged_df[self.buildings.fields.get_field_name('area')].values, axis=0), dtype=float)
 
         # IncLoss (broken down for clarity)
         merged_df[self.buildings.fields.get_field_name('income_loss')] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModRecoveryTime'].values + merged_df['ModConstrTime'].values, axis=0).values  +
             merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtRecoveryTime'].values + merged_df['ExtConstrTime'].values, axis=0).values +
-            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values + merged_df['CmpConstrTime'].values, axis=0).values
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values + merged_df['CmpConstrTime'].values, axis=0).values,
+            dtype=float
         ).mul(1.0 - merged_df['IncomeRecap'].values, axis=0).mul(merged_df[self.buildings.fields.get_field_name('area')].values, axis=0).mul(merged_df['IncPerDay'].values, axis=0)
 
         # RentLoss
         merged_df[self.buildings.fields.get_field_name('rental_loss')] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModRecoveryTime'].values, axis=0).values  +
             merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtRecoveryTime'].values, axis=0).values +
-            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values, axis=0).values
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values, axis=0).values,
+            dtype=float
         ).mul((1.0 - pct_owner_occ_ratio) * merged_df[self.buildings.fields.get_field_name('area')].values * merged_df['RentPerDay'].values, axis=0)
 
         # WageLoss (uses the same time calculation as IncLoss)
         merged_df[self.buildings.fields.get_field_name('wage_loss')] = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_str_moderate')].mul(merged_df['ModRecoveryTime'].values + merged_df['ModConstrTime'].values, axis=0).values  +
             merged_df[self.buildings.fields.get_field_name('probability_str_extensive')].mul(merged_df['ExtRecoveryTime'].values + merged_df['ExtConstrTime'].values, axis=0).values +
-            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values + merged_df['CmpConstrTime'].values, axis=0).values
+            merged_df[self.buildings.fields.get_field_name('probability_str_complete')].mul(merged_df['CmpRecoveryTime'].values + merged_df['CmpConstrTime'].values, axis=0).values,
+            dtype=float
         ).mul((1.0 - merged_df['WageRecap'].values) * merged_df[self.buildings.fields.get_field_name('area')].values * merged_df['WagePerDay'].values, axis=0)
 
         # InvLoss Needs eqTractDsBt Damage state probabilities
         weighted_inv_dmg = pd.DataFrame(
             merged_df[self.buildings.fields.get_field_name('probability_nsd_moderate')].mul(merged_df['ModInvDmg'], axis=0).values +
             merged_df[self.buildings.fields.get_field_name('probability_nsd_extensive')].mul(merged_df['ExtInvDmg'], axis=0).values +
-            merged_df[self.buildings.fields.get_field_name('probability_nsd_complete')].mul(merged_df['CmpInvDmg'], axis=0).values
+            merged_df[self.buildings.fields.get_field_name('probability_nsd_complete')].mul(merged_df['CmpInvDmg'], axis=0).values,
+            dtype=float
         ) / 100.0 # Apply the division by 100 from the SQL
 
         inventory_value = merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'] * merged_df['BusinessInv'] / 100
 
         merged_df[self.buildings.fields.get_field_name('inventory_loss')] = pd.DataFrame(
-            weighted_inv_dmg.mul(inventory_value.values, axis=0)
+            weighted_inv_dmg.mul(inventory_value.values, axis=0),
+            dtype=float
         )
 
         # Compute Bulding Loss AAL
@@ -249,7 +257,7 @@ class ttfAALAnalysis:
                 if match:
                     return_periods.append(int(match.group(1)))
             
-            sum_ann_loss = pd.DataFrame(0.0, index=losses_df.index, columns=[return_periods])
+            sum_ann_loss = pd.DataFrame(0.0, index=losses_df.index, columns=[return_periods], dtype=float)
             for p in return_periods:
                 if return_periods.index(p) == len(return_periods) - 1:
                     sum_ann_loss[p] = ((1 / p) * losses_df.iloc[:, return_periods.index(p)])
@@ -269,6 +277,11 @@ class ttfAALAnalysis:
         # Compute Building Loss AAL
         merged_df[self.buildings.fields.get_field_name('building_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('building_loss')])
     
+        # Compute BldgAAL_lossratio_USDperM
+        merged_df[self.buildings.fields.get_field_name('BldgAAL_lossratio_USDperM')] = (
+            merged_df[self.buildings.fields.get_field_name('building_loss_aal')] / ( merged_df[self.buildings.fields.get_field_name('building_cost')] / 1_000_000 )
+        )
+
         # Compute Content Loss AAL
         merged_df[self.buildings.fields.get_field_name('content_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('content_loss')])
 
@@ -295,6 +308,11 @@ class ttfAALAnalysis:
                 self.bldg_cap,
             )
         )
+        
+        # Compute GrossBldgAAL_lossratio_USDperM
+        merged_df[self.buildings.fields.get_field_name('GrossBldgAAL_lossratio_USDperM')] = (
+            merged_df[self.buildings.fields.get_field_name('gross_building_loss_aal')] / ( merged_df[self.buildings.fields.get_field_name('building_cost')] / 1_000_000 )
+        )
 
         # Compute Content Loss AAL with deductible
         merged_df[self.buildings.fields.get_field_name('gross_content_loss_aal')] = calc_aal(
@@ -305,5 +323,53 @@ class ttfAALAnalysis:
             )
         )
 
-        
+        # Compute Capital Loss AAL (building + content + inventory)
+        merged_df[self.buildings.fields.get_field_name('CapitalLoss_AAL')] = (
+            merged_df[self.buildings.fields.get_field_name('building_loss_aal')]
+                .add(merged_df[self.buildings.fields.get_field_name('content_loss_aal')].values)
+                .add(merged_df[self.buildings.fields.get_field_name('inventory_loss_aal')].values)
+        )
+
+        # Compute Income Loss AAL (relocation, income, rental, wage)
+        merged_df[self.buildings.fields.get_field_name('IncomeLoss_AAL')] = (
+            merged_df[self.buildings.fields.get_field_name('relocation_loss_aal')]
+                .add(merged_df[self.buildings.fields.get_field_name('income_loss_aal')].values)
+                .add(merged_df[self.buildings.fields.get_field_name('rental_loss_aal')].values)
+                .add(merged_df[self.buildings.fields.get_field_name('wage_loss_aal')].values)
+        )
+
+        # Compute Total Economic Loss AAL (capital + income)
+        merged_df[self.buildings.fields.get_field_name('TotalEconomicLoss_AAL')] = (
+            merged_df[self.buildings.fields.get_field_name('CapitalLoss_AAL')]
+                .add(merged_df[self.buildings.fields.get_field_name('IncomeLoss_AAL')].values)
+        )
+
+
+        # Ensure proper field order
+
+        column_order = [
+
+        ]
+
+        def reorder_columns(df, column_order):
+            """
+            Reorders DataFrame columns to match a specified order.
+            - Skips columns in the list that don't exist in the DataFrame
+            - Supports wildcard patterns using '*' (e.g., 'FlowDepth_*yr_Median_ft')
+            - Any DataFrame columns not matched by the list are dropped
+            """
+            matched_columns = []
+            
+            for col in column_order:
+                if '*' in col:
+                    # Convert wildcard pattern to regex
+                    pattern = re.compile('^' + re.escape(col).replace(r'\*', '.*') + '$')
+                    matches = [c for c in df.columns if pattern.match(c)]
+                    matched_columns.extend(matches)
+                elif col in df.columns:
+                    matched_columns.append(col)
+                # If col not in df, silently skip it
+            
+            return df[matched_columns]
+
         return merged_df

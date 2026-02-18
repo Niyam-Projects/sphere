@@ -42,6 +42,11 @@ uv run pytest -q
 uv run examples\fast_analysis.py
 ```
 
+4. There is a marimo notebook for TTF Tsunami calculations in `examples/` as well.
+```powershell
+uv run marimo run examples\ttf-tsunami.py
+```
+
 Contributing
 Please see `CONTRIBUTING.md` for guidelines on reporting issues, proposing
 changes, running tests, and contributing patches. All contributors must

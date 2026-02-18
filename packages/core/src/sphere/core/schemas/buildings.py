@@ -613,6 +613,11 @@ class ttfBuildings:
             "inventory_loss_aal": "inventory_loss_aal",
             "gross_building_loss_aal": "gross_building_loss_aal",
             "gross_content_loss_aal": "gross_content_loss_aal",
+            "CapitalLoss_AAL": "CapitalLoss_AAL",
+            "IncomeLoss_AAL": "IncomeLoss_AAL",
+            "TotalEconomicLoss_AAL": "TotalEconomicLoss_AAL",
+            "BldgAAL_lossratio_USDperM": "BldgAAL_lossratio_USDperM",
+            "GrossBldgAAL_lossratio_USDperM": "GrossBldgAAL_lossratio_USDperM",
         }
 
         # Grab all fields from gdf columns that start with "MomFlux" or "FlowDepth"
