@@ -17,6 +17,11 @@ with app.setup:
     from sphere.tsunami.default_vulnerability import DefaultTsunamiVulnerability
 
 
+@app.cell
+def _():
+    return
+
+
 @app.cell(hide_code=True)
 def _():
     import importlib.metadata
@@ -181,7 +186,7 @@ def _(columns_form, results):
 @app.cell
 def _(__sphere_version__, form):
     # Create the form
-    _current_date = datetime.now().strftime("%Y%M%d%H%S")
+    _current_date = datetime.now().strftime("%Y%m%d")
     form
     export_form = (
         mo.md('''
