@@ -278,7 +278,7 @@ class ttfAALAnalysis:
         merged_df[self.buildings.fields.get_field_name('building_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('building_loss')])
     
         # Compute BldgAAL_lossratio_USDperM
-        merged_df[self.buildings.fields.get_field_name('BldgAAL_lossratio_USDperM')] = (
+        merged_df[self.buildings.fields.get_field_name('BldgAAL_LossRatio_USDperM')] = (
             merged_df[self.buildings.fields.get_field_name('building_loss_aal')] / ( merged_df[self.buildings.fields.get_field_name('building_cost')] / 1_000_000 )
         )
 
@@ -310,7 +310,7 @@ class ttfAALAnalysis:
         )
         
         # Compute GrossBldgAAL_lossratio_USDperM
-        merged_df[self.buildings.fields.get_field_name('GrossBldgAAL_lossratio_USDperM')] = (
+        merged_df[self.buildings.fields.get_field_name('GrossBldgAAL_LossRatio_USDperM')] = (
             merged_df[self.buildings.fields.get_field_name('gross_building_loss_aal')] / ( merged_df[self.buildings.fields.get_field_name('building_cost')] / 1_000_000 )
         )
 

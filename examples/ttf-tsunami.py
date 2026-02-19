@@ -10,6 +10,7 @@ with app.setup:
     import geopandas as gpd
     import pandas as pd
     from datetime import datetime
+    from io import BytesIO
     from shapely.geometry import Point
     from pathlib import Path
     from sphere.core.schemas.buildings import ttfBuildings
@@ -19,7 +20,155 @@ with app.setup:
 
 @app.cell
 def _():
-    return
+    column_dict = {
+        "PRIMARY KEY": [
+            "ID",
+            "NsiID",
+        ],
+        "INVENTORY": [
+            "EqBldgType",
+            "EqDesignLe",
+            "SOccupID",
+            "Occupancy_Type",
+            "FirstFloor",
+            "ValStruct",
+            "ValCont",
+            "AreaSqft",
+            "CBFips",
+            "geometry",
+            "Longitude",
+            "Latitude",
+            "Point",
+        ],
+        "HAZARD": [
+            "FlowDepth_*yr_Median_ft",
+            "Speed_*yr_Median_ft_per_sec",
+            "MomFlux_*yr_Median_ft_per_sec",
+            "First_Wet_RP_yrs",
+            "Site_Elevation_ft",
+            "Grid_Index",
+            "AnchorPt_Index",
+            "depth_in_structure_*y",
+        ],
+        "DAMAGE STATE PROBABILITIES": [
+            "p_str_comp_*y",
+            "p_str_ext_*y",
+            "p_str_mod_*y",
+            "p_str_none_*y",
+            "p_nsd_comp_*y",
+            "p_nsd_ext_*y",
+            "p_nsd_mod_*y",
+            "p_nsd_none_*y",
+            "p_cont_comp_*y",
+            "p_cont_ext_*y",
+            "p_cont_mod_*y",
+            "p_cont_none_*y",
+        ],
+        "ANALYSIS PARAMETERS": [
+            "Occupancy",
+            "SlightStrRepair",
+            "ModStrRepair",
+            "ExtStrRepair",
+            "CmpStrRepair",
+            "SlightNsaRepair",
+            "ModNsaRepair",
+            "ExtNsaRepair",
+            "CmpNsaRepair",
+            "SlightNsdRepair",
+            "ModNsdRepair",
+            "ExtNsdRepair",
+            "CmpNsdRepair",
+            "SlightCntRepair",
+            "ModCntRepair",
+            "ExtCntRepair",
+            "CmpCntRepair",
+            "NoneRepairTime",
+            "SlightRepairTime",
+            "ModRepairTime",
+            "ExtRepairTime",
+            "CmpRepairTime",
+            "NoneRecoveryTime",
+            "SlightRecoveryTime",
+            "ModRecoveryTime",
+            "ExtRecoveryTime",
+            "CmpRecoveryTime",
+            "NoneConstrTime",
+            "SlightConstrTime",
+            "ModConstrTime",
+            "ExtConstrTime",
+            "CmpConstrTime",
+            "RentPerDay",
+            "RentPerMonth",
+            "DisruptCostPerMonth",
+            "PctOwnerOcc",
+            "IncPerDay",
+            "IncPerYear",
+            "WagePerDay",
+            "EmploymentPerDay",
+            "OutputPerDay",
+            "WageRecap",
+            "EmploymentRecap",
+            "IncomeRecap",
+            "OutputRecap",
+            "Occupancy_econInc",
+            "GrossSales",
+            "BusinessInv",
+            "SlightInvDmg",
+            "ModInvDmg",
+            "ExtInvDmg",
+            "CmpInvDmg",
+        ],
+        "LOSSES (RETURN PERIOD)": [
+            "StructLoss_*y",
+            "NonStrLoss_*y",
+            "building_loss_*y",
+            "content_loss_*y",
+            "inventory_loss_*y",
+            "relocation_loss_*y",
+            "income_loss_*y",
+            "rental_loss_*y",
+            "wage_loss_*y",
+            "total_economic_loss_*y",
+        ],
+        "LOSSES (AVERAGE ANNUALIZED LOSS)": [
+            "building_loss_aal",
+            "BldgAAL_LossRatio_USDperM",
+            "content_loss_aal",
+            "inventory_loss_aal",
+            "relocation_loss_aal",
+            "income_loss_aal",
+            "rental_loss_aal",
+            "wage_loss_aal",
+            "CapitalLoss_AAL",
+            "IncomeLoss_AAL",
+            "TotalEconomicLoss_AAL",
+        ],
+        "LOSSES (ACTUARIAL LOSS)": [
+            "gross_building_loss_*yr",
+            "gross_building_loss_aal",
+            "GrossBldgAAL_LossRatio_USDperM",
+            "gross_content_loss_aal",
+        ],
+    }
+    return (column_dict,)
+
+
+@app.function
+def reorder_columns(df, column_order):
+    # Build a lowercased lookup of actual df columns for exact matching
+    lower_to_actual = {c.lower(): c for c in df.columns}
+    
+    matched_columns = []
+    
+    for col in column_order:
+        if '*' in col:
+            pattern = re.compile('^' + re.escape(col).replace(r'\*', '.*') + '$', re.IGNORECASE)
+            matches = [c for c in df.columns if pattern.match(c)]
+            matched_columns.extend(matches)
+        elif col.lower() in lower_to_actual:
+            matched_columns.append(lower_to_actual[col.lower()])
+    
+    return df[matched_columns]
 
 
 @app.cell(hide_code=True)
@@ -46,21 +195,21 @@ def _():
 @app.cell
 def _():
     # Display all the csv files in the tsunami_transform_function folder
-    folder_path = Path("./examples/tsunami_transform_function/")  # Change this to your folder path
-    _csv_files = sorted([f.name for f in folder_path.glob("*.csv")])
+    folder_path = Path(r"./examples/tsunami_transform_function/")  # Change this to your folder path
 
     form = mo.md(
         """
-        ### Select CSV file: {csv_select}\n
+        ### {csv_select}<small>(You can drag and drop!)</small>
         ### Building Loss Deductible: {bldg_deductible}\n
         ### Building Loss Cap: {bldg_cap}\n
         ### Content Loss Deductible: {cont_deductible}\n
         ### Content Loss Cap: {cont_cap}\n
         """
                 ).batch(
-        csv_select = mo.ui.dropdown(
-            options=_csv_files,
-            value=None,
+        csv_select = mo.ui.file(
+            label="Upload CSV File",
+            filetypes=[".csv"],
+            multiple=False,
         ),
         bldg_deductible = mo.ui.number(5_000),
         bldg_cap = mo.ui.number(250_000),
@@ -68,14 +217,14 @@ def _():
         cont_cap = mo.ui.number(100_000),
     ).form(bordered=True, label="## **Parameters**")
     form
-    return folder_path, form
+    return (form,)
 
 
 @app.cell
-def _(folder_path, form):
+def _(column_dict, form):
     mo.stop(form.value is None or form.value["csv_select"] is None, "Please select a CSV file to continue")
-
-    _csv_file = mo.cli_args().get("file") or folder_path / form.value["csv_select"]
+    # _csv_file = mo.cli_args().get("file") or folder_path / form.value["csv_select"]
+    _csv_file = mo.cli_args().get("file") or form.value["csv_select"][0].contents
     if mo.running_in_notebook:
         _bldg_deductible = int(form.value["bldg_deductible"])
         _bldg_cap = int(form.value["bldg_cap"])
@@ -87,7 +236,7 @@ def _(folder_path, form):
         _bldg_cap = int(mo.cli_args().get("bldg_cap") or 250_000)
         _cont_deductible = int(mo.cli_args().get("cont_deductible") or 1_250)
         _cont_cap = int(mo.cli_args().get("cont_cap") or 100_000)
-    _df = pd.read_csv(_csv_file)
+    _df = pd.read_csv(BytesIO(_csv_file))
 
     # Create geometry from X, Y coordinates
     _geometry = [Point(xy) for xy in zip(_df['Longitude'], _df['Latitude'])]
@@ -104,6 +253,10 @@ def _(folder_path, form):
     )
 
     results = analysis.calculate_losses()
+
+    # Reorder the fields
+    _col_order = [_col for _cols in column_dict.values() for _col in _cols]
+    results = reorder_columns(results, _col_order)
 
     gdf
     return (results,)
@@ -145,69 +298,57 @@ def _(results):
 
 
 @app.cell
-def _(form):
+def _(column_dict, form):
     mo.stop(form.value is None or form.value["csv_select"] is None)
-    columns_form = mo.md(
-        """
-        ### View Columns: {cols_select}\n
-        """
-                ).batch(
-        cols_select = mo.ui.dropdown(
-            options=[
-                "total_economic_loss",
-                "building_loss",
-                "content_loss",
-                "inventory_loss",
-                "wage_loss",
-                "rental_loss",
-                "relocation_loss",
-                "income_loss",
-            ],
-            value="total_economic_loss",
-            allow_select_none=False,
-        ),
-    ).form(bordered=True, label="## **Select Loss Columns for View**")
-    columns_form
-    return (columns_form,)
+    cols_select = mo.ui.dropdown(
+        options=list(column_dict.keys())[1:],
+        value=list(column_dict.keys())[1],
+        allow_select_none=False,
+    )
+    mo.vstack([
+        mo.md("# View Columns"),
+        cols_select,
+    ])
+    return (cols_select,)
 
 
 @app.cell
-def _(columns_form, results):
-    view_columns = ['NsiID', 'EqBldgType', 'EqDesignLe', 'ValStruct', 'ValCont']
-    if columns_form.value:
-        cols_to_add = [col for col in list(results.columns.values) if columns_form.value["cols_select"] in col]
-    else:
-        cols_to_add = [col for col in list(results.columns.values) if "building_loss" in col]
-    view_columns += cols_to_add
-    results[view_columns]
+def _(cols_select, column_dict, results):
+    # view_columns = ['NsiID', 'EqBldgType', 'EqDesignLe', 'ValStruct', 'ValCont']
+    reorder_columns(results, column_dict["PRIMARY KEY"] + column_dict[cols_select.value])
+    # results[view_columns]
     return
 
 
 @app.cell
-def _(__sphere_version__, form):
+def _(__sphere_version__, column_dict, form):
     # Create the form
     _current_date = datetime.now().strftime("%Y%m%d")
-    form
     export_form = (
         mo.md('''
-        {filename}
+        {filename}\n
+        {cols}
         ''')
         .batch(
             filename=mo.ui.text(
                 label="CSV Filename",
                 value=f"results_{_current_date}_v{__sphere_version__.replace('.', '_')}",
                 placeholder="Enter filename (without .csv)"
-            )
+            ),
+            cols = mo.ui.multiselect(
+                label="Select Columns",
+                options=list(column_dict.keys())[1:],
+                # value=[list(column_dict.keys())[1]],
+            ),
         )
         .form(bordered=True, label="## **Export Results to CSV**")
     )
-
     export_form if form.value else mo.md('Run analysis first.')
     return (export_form,)
 
 
 @app.cell
-def _(export_form, results):
+def _(column_dict, export_form, results):
     if export_form.value and export_form.value["filename"]:
         with mo.status.spinner(subtitle="Saving csv file ...") as _spinner:
             # Get the filename from the form
@@ -225,12 +366,15 @@ def _(export_form, results):
             output_path = output_dir / filename
 
             # Export the GeoDataFrame to CSV
-            results.to_csv(output_path, index=False)
+            _filtered_dict = {_k: column_dict[_k] for _k in export_form.value["cols"]}
+            _col_order = [_col for _cols in _filtered_dict.values() for _col in _cols]
+            _final_results = reorder_columns(results, column_dict["PRIMARY KEY"] + _col_order)
+            _final_results.to_csv(output_path, index=False)
 
         # Show success message
         result = mo.md(f"✅ Successfully exported to `{output_path}`")
     else:
-        result = mo.md("Enter a filename and click Export")
+        result = mo.md("Enter a filename and click Submit")
 
     result
     return
