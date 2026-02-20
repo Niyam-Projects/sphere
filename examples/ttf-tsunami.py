@@ -405,7 +405,7 @@ def _(show_datadict_button):
             _content = _f.read()
         _display = mo.md(_content)
     else:
-        _display = mo.md("Click button above to see data dictionary...")
+        _display = mo.md("")
     _display
     return
 
