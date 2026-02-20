@@ -178,9 +178,9 @@ def _():
 def reorder_columns(df, column_order):
     # Build a lowercased lookup of actual df columns for exact matching
     lower_to_actual = {c.lower(): c for c in df.columns}
-    
+
     matched_columns = []
-    
+
     for col in column_order:
         if '*' in col:
             pattern = re.compile('^' + re.escape(col).replace(r'\*', '.*') + '$', re.IGNORECASE)
@@ -188,7 +188,7 @@ def reorder_columns(df, column_order):
             matched_columns.extend(matches)
         elif col.lower() in lower_to_actual:
             matched_columns.append(lower_to_actual[col.lower()])
-    
+
     return df[matched_columns]
 
 
@@ -199,7 +199,7 @@ def _():
 
     form = mo.md(
         """
-        ### {csv_select}<small>(You can drag and drop!)</small>
+        ### {csv_select}\n
         ### Building Loss Deductible: {bldg_deductible}\n
         ### Building Loss Cap: {bldg_cap}\n
         ### Content Loss Deductible: {cont_deductible}\n
