@@ -18,7 +18,28 @@ with app.setup:
     from sphere.tsunami.default_vulnerability import DefaultTsunamiVulnerability
 
 
-@app.cell
+@app.cell(hide_code=True)
+def _():
+    import importlib.metadata
+    try:
+        __sphere_version__ = importlib.metadata.version("niyamit-sphere")
+        __tsunami_version__ = importlib.metadata.version("tsunami")
+    except importlib.metadata.PackageNotFoundError:
+        # Handle the case where the package is not installed
+        __sphere_version__ = "unknown"
+        __tsunami_version__ = "unknown"
+
+    _sphere_msg = f"SPHERE version: {__sphere_version__}"
+    _tsunami_msg = f"Tsunami version: {__tsunami_version__}"
+
+    mo.vstack([
+        mo.md(_sphere_msg),
+        mo.md(_tsunami_msg),
+    ])
+    return (__sphere_version__,)
+
+
+@app.cell(hide_code=True)
 def _():
     column_dict = {
         "PRIMARY KEY": [
@@ -153,7 +174,7 @@ def _():
     return (column_dict,)
 
 
-@app.function
+@app.function(hide_code=True)
 def reorder_columns(df, column_order):
     # Build a lowercased lookup of actual df columns for exact matching
     lower_to_actual = {c.lower(): c for c in df.columns}
@@ -169,27 +190,6 @@ def reorder_columns(df, column_order):
             matched_columns.append(lower_to_actual[col.lower()])
     
     return df[matched_columns]
-
-
-@app.cell(hide_code=True)
-def _():
-    import importlib.metadata
-    try:
-        __sphere_version__ = importlib.metadata.version("niyamit-sphere")
-        __tsunami_version__ = importlib.metadata.version("tsunami")
-    except importlib.metadata.PackageNotFoundError:
-        # Handle the case where the package is not installed
-        __sphere_version__ = "unknown"
-        __tsunami_version__ = "unknown"
-
-    _sphere_msg = f"SPHERE version: {__sphere_version__}"
-    _tsunami_msg = f"Tsunami version: {__tsunami_version__}"
-
-    mo.vstack([
-        mo.md(_sphere_msg),
-        mo.md(_tsunami_msg),
-    ])
-    return (__sphere_version__,)
 
 
 @app.cell
@@ -306,7 +306,7 @@ def _(column_dict, form):
         allow_select_none=False,
     )
     mo.vstack([
-        mo.md("# View Columns"),
+        mo.md("# View Domains"),
         cols_select,
     ])
     return (cols_select,)
@@ -336,7 +336,7 @@ def _(__sphere_version__, column_dict, form):
                 placeholder="Enter filename (without .csv)"
             ),
             cols = mo.ui.multiselect(
-                label="Select Columns",
+                label="Select Domains",
                 options=list(column_dict.keys())[1:],
                 # value=[list(column_dict.keys())[1]],
             ),
@@ -377,6 +377,36 @@ def _(column_dict, export_form, results):
         result = mo.md("Enter a filename and click Submit")
 
     result
+    return
+
+
+@app.cell
+def _():
+    def _val_track(val):
+        if not val:
+            val += 1
+        else:
+            val -= 1
+        return val
+    show_datadict_button = mo.ui.button(
+        label="Click to toggle Data Dictionary",
+        value=0,
+        on_click=lambda value: _val_track(value)
+    )
+    show_datadict_button
+    return (show_datadict_button,)
+
+
+@app.cell
+def _(show_datadict_button):
+    if show_datadict_button.value:
+        _md_file = "Tsunami_DataDictionary.md"
+        with open(_md_file, "r") as _f:
+            _content = _f.read()
+        _display = mo.md(_content)
+    else:
+        _display = mo.md("Click button above to see data dictionary...")
+    _display
     return
 
 
