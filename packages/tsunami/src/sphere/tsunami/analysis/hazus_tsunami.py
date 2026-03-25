@@ -298,22 +298,38 @@ class HazusTsunamiAnalysis:
         # Compute Inventory Loss AAL
         merged_df[self.buildings.fields.get_field_name('inventory_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('inventory_loss')])
 
+        # Compute Gross Building Losses
+        merged_df[self.buildings.fields.get_field_name('gross_building_loss')] = adjust_loss_dedlim(
+            merged_df[self.buildings.fields.get_field_name('building_loss')],
+            self.bldg_deductible,
+            self.bldg_cap,
+        )
+        
+        # Compute Gross Content Losses
+        merged_df[self.buildings.fields.get_field_name('gross_content_loss')] = adjust_loss_dedlim(
+            merged_df[self.buildings.fields.get_field_name('content_loss')],
+            self.cont_deductible,
+            self.cont_cap,
+        )
+        
         # Compute Building Loss AAL with deductible
         merged_df[self.buildings.fields.get_field_name('gross_building_loss_aal')] = calc_aal(
-            adjust_loss_dedlim(
-                merged_df[self.buildings.fields.get_field_name('building_loss')],
-                self.bldg_deductible,
-                self.bldg_cap,
-            )
+            # adjust_loss_dedlim(
+            #     merged_df[self.buildings.fields.get_field_name('building_loss')],
+            #     self.bldg_deductible,
+            #     self.bldg_cap,
+            # )
+            merged_df[self.buildings.fields.get_field_name('gross_building_loss')]
         )
 
         # Compute Content Loss AAL with deductible
         merged_df[self.buildings.fields.get_field_name('gross_content_loss_aal')] = calc_aal(
-            adjust_loss_dedlim(
-                merged_df[self.buildings.fields.get_field_name('content_loss')],
-                self.cont_deductible,
-                self.cont_cap,
-            )
+            # adjust_loss_dedlim(
+            #     merged_df[self.buildings.fields.get_field_name('content_loss')],
+            #     self.cont_deductible,
+            #     self.cont_cap,
+            # )
+            merged_df[self.buildings.fields.get_field_name('gross_content_loss')]
         )
 
         

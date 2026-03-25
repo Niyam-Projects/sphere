@@ -165,7 +165,8 @@ def _():
             "TotalEconomicLoss_AAL",
         ],
         "LOSSES (ACTUARIAL LOSS)": [
-            "gross_building_loss_*yr",
+            "gross_building_loss_*y",
+            "gross_content_loss_*y",
             "gross_building_loss_aal",
             "GrossBldgAAL_LossRatio_USDperM",
             "gross_content_loss_aal",
