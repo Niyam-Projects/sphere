@@ -125,7 +125,7 @@ def _():
             "IncPerDay",
             "IncPerYear",
             "WagePerDay",
-            "EmploymentPerDay",
+            "EmployeePerSqft",
             "OutputPerDay",
             "WageRecap",
             "EmploymentRecap",

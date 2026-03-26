@@ -300,7 +300,7 @@
 | IncPerDay           | Proprietor income $ per sq ft per day                                                      |
 | IncPerYear          | Proprietor income $ per sq ft per year                                                     |
 | WagePerDay          | Wages paid $ per sq ft per day                                                             |
-| EmploymentPerDay    | Employees per sq ft                                                                        |
+| EmployeePerSqft     | Employees per sq ft                                                                        |
 | OutputPerDay        | Output $ per sq ft per day                                                                 |
 | WageRecap           | Wage recapture factor (percent)                                                            |
 | EmploymentRecap     | Employment recapture factor (percent)                                                      |
