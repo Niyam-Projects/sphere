@@ -1,9 +1,9 @@
-# Data Dictionary (Verbatim + Grouped by Domain)
+# Data Dictionary
 
 ## INVENTORY
 
 | FIELD | DESCRIPTION |
-|---|---|
+|:---|:---|
 | ID | Unique National Structure Inventory ID, Milliman and other unique IDs may be used |
 | EqBldgType | Earthquake-specific building type classification ID |
 | EqDesignLe | Earthquake design level classification ID |
@@ -21,7 +21,7 @@
 ## HAZARD
 
 | FIELD | DESCRIPTION |
-|---|---|
+|:---|:---|
 | Point | Unique point ID provided by TTF tool |
 | FlowDepth_10yr_Median_ft | Median flow depth in feet for the 10-year return period |
 | FlowDepth_25yr_Median_ft | Median flow depth in feet for the 25-year return period |
@@ -87,7 +87,7 @@
 ## DAMAGE STATE PROBABILITIES
 
 | FIELD | DESCRIPTION |
-|---|---|
+|:---|:---|
 | p_str_comp_10y | Probability of structural complete damage state for the 10-year return period |
 | p_str_comp_25y | Probability of structural complete damage state for the 25-year return period |
 | p_str_comp_50y | Probability of structural complete damage state for the 50-year return period |
@@ -260,7 +260,7 @@
 ## ANALYSIS PARAMETERS
 
 | FIELD | DESCRIPTION |
-|---|---|
+|:---|:---|
 | Occupancy | Hazus occupancy classification (i.e., RES1, COM1, IND2) |
 | SlightStrRepair | Slight structural damage repair ratio |
 | ModStrRepair | Moderate structural damage repair ratio |
@@ -317,7 +317,7 @@
 ## LOSSES (RETURN PERIOD)
 
 | FIELD | DESCRIPTION |
-|---|---|
+|:---|:---|
 | StructLoss_10y | Structural building loss ($) for the 10-year return period |
 | StructLoss_25y | Structural building loss ($) for the 25-year return period |
 | StructLoss_50y | Structural building loss ($) for the 50-year return period |
@@ -462,7 +462,7 @@
 ## LOSSES (AVERAGE ANNUALIZED LOSS)
 
 | FIELD | DESCRIPTION |
-|---|---|
+|:---|:---|
 | building_loss_aal | Building Average Annual Loss ($) |
 | BldgAAL_lossratio_USDperM | Building Average Annual Loss Ratio ($ per $1 million building structure replacement cost) |
 | content_loss_aal | Content Average Annual Loss ($) |
@@ -478,7 +478,7 @@
 ## LOSSES (ACTUARIAL LOSS)
 
 | FIELD | DESCRIPTION |
-|---|---|
+|:---|:---|
 | gross_building_loss_10yr | Gross building (i.e., deductibles and limits applied) loss ($) for the 10-year return period |
 | gross_building_loss_25yr | Gross building (i.e., deductibles and limits applied) loss ($) for the 25-year return period |
 | gross_building_loss_50yr | Gross building (i.e., deductibles and limits applied) loss ($) for the 50-year return period |
