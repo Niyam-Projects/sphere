@@ -1,13 +1,16 @@
+import logging
 import pytest
 import pandas as pd
 import geopandas as gpd
 import numpy as np
 from pathlib import Path
 from shapely.geometry import Point
+from unittest.mock import patch
 
 from sphere.core.schemas.buildings import Buildings
 from sphere.core.schemas.buildings import ttfBuildings
 from sphere.tsunami.analysis.hazus_tsunami import HazusTsunamiAnalysis
+from sphere.tsunami.analysis.ttf_aal_analysis import ttfAALAnalysis
 from sphere.tsunami.default_vulnerability import DefaultTsunamiVulnerability
 from sphere.core.schemas.abstract_raster_reader import AbstractRasterReader
 
@@ -350,3 +353,83 @@ def test_ttf_tsunami_analysis(ttf_buildings_data, mock_rasters_ttf):
     #     rtol=rtol,
     #     err_msg="Wage loss values don't match expected"
     # )
+
+
+def test_ttf_aal_warns_non_monotonic_flux_values(caplog):
+    """ttfAALAnalysis logs a warning when flux data values decrease across return period columns."""
+    n = 3
+    # MomFlux_100yr values are HIGHER than MomFlux_250yr — non-monotonic data
+    gdf = gpd.GeoDataFrame(
+        {
+            'SOccupID': ['RES1'] * n,
+            'AreaSqft': [1500.0] * n,
+            'ValStruct': [200_000.0] * n,
+            'ValCont': [50_000.0] * n,
+            'FirstFloor': [1.0] * n,
+            'EqBldgType': ['W1'] * n,
+            'MomFlux_100yr_Median': [10.0, 8.0, 6.0],
+            'MomFlux_250yr_Median': [5.0, 4.0, 3.0],   # lower than 100yr → violation
+            'FlowDepth_100yr_Median': [5.0, 4.0, 3.0],
+            'FlowDepth_250yr_Median': [8.0, 7.0, 6.0],
+        },
+        geometry=gpd.points_from_xy([-122.0] * n, [47.0] * n),
+        crs="EPSG:4326",
+    )
+
+    buildings = ttfBuildings(gdf=gdf)
+    vulnerability_func = DefaultTsunamiVulnerability()
+    analysis = ttfAALAnalysis(buildings=buildings, vulnerability_func=vulnerability_func)
+
+    with caplog.at_level(logging.WARNING):
+        with patch.object(vulnerability_func, 'compute_damage_states'):
+            try:
+                analysis.calculate_losses()
+            except Exception:
+                # The warning fires before compute_damage_states; ignore downstream
+                # errors caused by missing probability columns from the patched no-op.
+                pass
+
+    assert any(
+        "do not monotonically increase" in record.message
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    ), "Expected a warning about non-monotonic flux values, but none was logged."
+
+
+def test_ttf_aal_no_warning_monotonic_flux_values(caplog):
+    """ttfAALAnalysis does NOT warn when flux data values increase monotonically across columns."""
+    n = 3
+    # MomFlux_250yr > MomFlux_100yr — correct monotonic order
+    gdf = gpd.GeoDataFrame(
+        {
+            'SOccupID': ['RES1'] * n,
+            'AreaSqft': [1500.0] * n,
+            'ValStruct': [200_000.0] * n,
+            'ValCont': [50_000.0] * n,
+            'FirstFloor': [1.0] * n,
+            'EqBldgType': ['W1'] * n,
+            'MomFlux_100yr_Median': [3.0, 4.0, 5.0],
+            'MomFlux_250yr_Median': [6.0, 7.0, 8.0],   # higher than 100yr → OK
+            'FlowDepth_100yr_Median': [3.0, 4.0, 5.0],
+            'FlowDepth_250yr_Median': [6.0, 7.0, 8.0],
+        },
+        geometry=gpd.points_from_xy([-122.0] * n, [47.0] * n),
+        crs="EPSG:4326",
+    )
+
+    buildings = ttfBuildings(gdf=gdf)
+    vulnerability_func = DefaultTsunamiVulnerability()
+    analysis = ttfAALAnalysis(buildings=buildings, vulnerability_func=vulnerability_func)
+
+    with caplog.at_level(logging.WARNING):
+        with patch.object(vulnerability_func, 'compute_damage_states'):
+            try:
+                analysis.calculate_losses()
+            except Exception:
+                pass
+
+    assert not any(
+        "do not monotonically increase" in record.message
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    ), "Unexpected warning about non-monotonic flux values for valid monotonic data."

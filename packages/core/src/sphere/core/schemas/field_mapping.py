@@ -1,5 +1,6 @@
 from typing import Dict, List, Set, Any
 import logging
+logger = logging.getLogger(__name__)
 import pandas as pd
 
 class FieldMapping():
@@ -108,14 +109,14 @@ class FieldMapping():
             match = self.find_best_match(list(df.columns), prop)
             if match:
                 discovered[prop] = match
-                logging.debug(f"Field mapping: '{prop}' -> '{match}'")
+                logger.debug(f"Field mapping: '{prop}' -> '{match}'")
             else:
                 # If no match found, use the first alias as fallback.
                 # Required-field failures are surfaced by the required_fields check in __init__.
                 if self._aliases[prop]:
                     fallback = self._aliases[prop][0]
                     discovered[prop] = fallback
-                    logging.debug(
+                    logger.debug(
                         f"No column match found for '{prop}'; using fallback '{fallback}'. "
                         f"Tried aliases: {self._aliases[prop]}"
                     )
@@ -124,7 +125,7 @@ class FieldMapping():
 
         # Warn if any input fields are missing and have no aliases
         if missing_input_fields:
-            logging.warning(f"Input fields not found in DataFrame and have no aliases: {missing_input_fields}")
+            logger.warning(f"Input fields not found in DataFrame and have no aliases: {missing_input_fields}")
         
         # Check output fields - these are optional
         for prop in self._output_fields.keys():

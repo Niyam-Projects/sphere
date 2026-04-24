@@ -1,4 +1,5 @@
 import logging
+logger = logging.getLogger(__name__)
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -99,7 +100,7 @@ class HazusTsunamiAnalysis:
         # TODO: Change out the buildings.fields to be the property access instead.
 
         gdf: gpd.GeoDataFrame = self.buildings.gdf
-        logging.info(f"Starting tsunami loss calculation for {len(gdf)} buildings.")
+        logger.info(f"Starting tsunami loss calculation for {len(gdf)} buildings.")
 
         # First assign the two values from the rasters
         # Assign depth values and bin them in 0.1 increments
@@ -116,15 +117,15 @@ class HazusTsunamiAnalysis:
         raw_depth_vals = np.asarray(raw_depth).ravel()
         raw_flux_vals = np.asarray(raw_flux).ravel()
         if np.any(raw_depth_vals[~np.isnan(raw_depth_vals)] < 0):
-            logging.warning("Negative flow depth values detected. Verify raster units are in feet.")
+            logger.warning("Negative flow depth values detected. Verify raster units are in feet.")
         median_depth = float(np.nanmedian(raw_depth_vals))
         if median_depth > 300:
-            logging.warning(
+            logger.warning(
                 f"Median flow depth is {median_depth:.1f} ft, which is unusually high. "
                 "If depth values are in meters, results will be incorrect — only imperial units (feet) are supported."
             )
         if np.all(raw_flux_vals[~np.isnan(raw_flux_vals)] == 0):
-            logging.warning("All momentum flux values are zero. Verify the correct raster was provided.")
+            logger.warning("All momentum flux values are zero. Verify the correct raster was provided.")
 
         # Then we need to apply vulnerabilities to get the median and betas and compute damage states
         self.fragility_function.compute_damage_states(self.buildings)

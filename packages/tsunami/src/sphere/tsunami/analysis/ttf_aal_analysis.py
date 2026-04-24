@@ -1,5 +1,6 @@
 import logging
-# logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+import re
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -27,6 +28,7 @@ class ttfAALAnalysis:
         bldg_cap = 250_000,
         cont_deductible = 1_250,
         cont_cap = 100_000,
+        units: str = "imperial",
     ):
         """
         Initializes a HazusFloodAnalysis object.
@@ -35,9 +37,53 @@ class ttfAALAnalysis:
             buildings (BuildingPoints): BuildingPoints object.
             vulnerability_func (VulnerabilityFunction): VulnerabilityFunction object.
             hazard (Hazard): Hazard object.
+        Raises:
+            NotImplementedError: If units is not "imperial".
         """
+        if units != "imperial":
+            raise NotImplementedError(
+                f"units='{units}' is not supported. "
+                "Only imperial units (feet for depth, ft³/s² for momentum flux) are currently supported."
+            )
+        else:
+            logger.info(f"Using imperial units for TTF tsunami analysis.")
+        self.units = units
         self.buildings = buildings
         self.fragility_function = vulnerability_func
+
+        # Validate MomFlux / FlowDepth columns (ttfBuildings only)
+        flux_list = getattr(buildings, 'flux_return_list', None)
+        depth_list = getattr(buildings, 'flood_return_list', None)
+        if flux_list is not None and depth_list is not None:
+            _errs = []
+            if len(flux_list) == 0:
+                _errs.append(
+                    "No MomFlux columns found in input DataFrame. "
+                    "Expected columns starting with 'MomFlux' (e.g. MomFlux_100yr_Median_ft_per_sec)."
+                )
+            if len(depth_list) == 0:
+                _errs.append(
+                    "No FlowDepth columns found in input DataFrame. "
+                    "Expected columns starting with 'FlowDepth' (e.g. FlowDepth_100yr_Median_ft)."
+                )
+            if not _errs:
+                _flux_periods = [re.search(r'(\d+)yr', c, re.IGNORECASE).group(1) for c in flux_list]
+                _depth_periods = [re.search(r'(\d+)yr', c, re.IGNORECASE).group(1) for c in depth_list]
+                if len(set(_flux_periods)) != len(flux_list):
+                    _errs.append(f"Duplicate return periods detected in MomFlux columns: {flux_list}")
+                if len(set(_depth_periods)) != len(depth_list):
+                    _errs.append(f"Duplicate return periods detected in FlowDepth columns: {depth_list}")
+                if not _errs and set(_flux_periods) != set(_depth_periods):
+                    _errs.append(
+                        f"Return period mismatch between MomFlux and FlowDepth columns. "
+                        f"MomFlux periods: {sorted(_flux_periods)}, FlowDepth periods: {sorted(_depth_periods)}"
+                    )
+            if _errs:
+                logger.error("Input DataFrame validation failed:\n" + "\n".join(f"  - {e}" for e in _errs))
+                raise ValueError(
+                    "Input DataFrame validation failed:\n" +
+                    "\n".join(f"  - {e}" for e in _errs)
+                )
         self.bldg_deductible = bldg_deductible
         self.bldg_cap = bldg_cap
         self.cont_deductible = cont_deductible
@@ -80,7 +126,7 @@ class ttfAALAnalysis:
         gdf: gpd.GeoDataFrame = self.buildings.gdf
         flux_cols = self.buildings.fields.get_field_name('flux')
         return_periods = flux_cols if isinstance(flux_cols, list) else [flux_cols]
-        logging.info(
+        logger.info(
             f"Starting TTF tsunami loss calculation for {len(gdf)} buildings "
             f"across {len(return_periods)} return period(s): {return_periods}"
         )
@@ -91,10 +137,34 @@ class ttfAALAnalysis:
         ffh_field = self.buildings.fields.get_field_name('first_floor_height')
         self.buildings.depth_in_structure = gdf[flood_depth_cols].sub(gdf[ffh_field], axis=0).clip(lower=0)
 
+        # Check that all return-period column groups increase monotonically.
+        # Group every GDF column that contains a return-period suffix (e.g. _100yr_)
+        # by its prefix (MomFlux_, FlowDepth_, Speed_, …), then verify that values
+        # are non-decreasing across sorted return periods for each group.
+        _rp_groups: dict[str, list[tuple[int, str]]] = {}
+        for _col in gdf.columns:
+            _m = re.search(r'(\d+)yr', _col, re.IGNORECASE)
+            if _m:
+                _prefix = _col[:_m.start()]
+                _rp_groups.setdefault(_prefix, []).append((int(_m.group(1)), _col))
+        for _prefix, _rp_cols in _rp_groups.items():
+            if len(_rp_cols) < 2:
+                continue
+            _sorted_cols = [c for _, c in sorted(_rp_cols)]
+            _data = gdf[_sorted_cols].values
+            _diffs = np.diff(_data, axis=1)
+            _non_nan = _diffs[~np.isnan(_diffs)]
+            if np.any(_non_nan < 0):
+                _n = int(np.sum(np.any(_diffs < 0, axis=1)))
+                logger.warning(
+                    f"'{_prefix}*yr*' values do not monotonically increase across return periods "
+                    f"for {_n} building(s)."
+                )
+
         # Plausibility check — warn if all flux values are zero
         flux_vals = gdf[return_periods].values.ravel()
         if np.all(flux_vals[~np.isnan(flux_vals)] == 0):
-            logging.warning("All momentum flux values are zero. Verify the correct input columns were provided.")
+            logger.warning("All momentum flux values are zero. Verify the correct input columns were provided.")
 
         self.fragility_function.compute_damage_states(self.buildings)
         
@@ -175,7 +245,6 @@ class ttfAALAnalysis:
         # Create structloss fields based on flux return periods
         flux_fields = self.buildings.fields.get_field_name('flux')
         flux_fields = [field for field in (flux_fields if isinstance(flux_fields, list) else [flux_fields])]
-        import re
         structloss_fields = []
         nonstrloss_fields = []
         if len(flux_fields) > 1:

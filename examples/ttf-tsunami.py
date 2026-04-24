@@ -28,9 +28,9 @@ with app.setup:
 
     logging.basicConfig(
         # filename=_LOG_FILE,
-        level=logging.WARN,
+        level=logging.INFO,
         force=True,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format='%(asctime)s - %(name)s - %(funcName)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler(_LOG_FILE),
             logging.StreamHandler()
@@ -244,8 +244,8 @@ def _():
 @app.cell
 def _(column_dict, form):
     mo.stop(form.value is None or form.value["csv_select"] is None, "Please select a CSV file to continue")
-    try:
-        with mo.redirect_stderr():
+    with mo.redirect_stderr():
+        try:
             # _csv_file = mo.cli_args().get("file") or folder_path / form.value["csv_select"]
             _csv_file = mo.cli_args().get("file") or form.value["csv_select"][0].contents
             if mo.running_in_notebook:
@@ -281,11 +281,8 @@ def _(column_dict, form):
             _col_order = [_col for _cols in column_dict.values() for _col in _cols]
             results = reorder_columns(results, _col_order)
             success = True
-    except Exception as _e:
-        with mo.redirect_stdout():
-            print(_e)
+        except Exception as _e:
             success = False
-        logging.warning(_e)
     return gdf, results, success
 
 

@@ -1,5 +1,6 @@
 from typing import Dict, Any
 import logging
+logger = logging.getLogger(__name__)
 import re
 import geopandas as gpd
 import pandas as pd
@@ -641,44 +642,6 @@ class ttfBuildings:
         aliases["flux"] = [flux_return_list]
         aliases["flood_depth"] = [flood_return_list]
 
-        # Validate flux and flood depth columns — collect all errors before raising
-        validation_errors = []
-
-        if len(flux_return_list) == 0:
-            validation_errors.append(
-                "No MomFlux columns found in input DataFrame. "
-                "Expected columns starting with 'MomFlux' (e.g. MomFlux_100yr_Median_ft_per_sec)."
-            )
-        if len(flood_return_list) == 0:
-            validation_errors.append(
-                "No FlowDepth columns found in input DataFrame. "
-                "Expected columns starting with 'FlowDepth' (e.g. FlowDepth_100yr_Median_ft)."
-            )
-
-        if not validation_errors:
-            flux_periods = [re.search(r'(\d+)yr', c, re.IGNORECASE).group(1) for c in flux_return_list]
-            depth_periods = [re.search(r'(\d+)yr', c, re.IGNORECASE).group(1) for c in flood_return_list]
-
-            if len(set(flux_periods)) != len(flux_return_list):
-                validation_errors.append(
-                    f"Duplicate return periods detected in MomFlux columns: {flux_return_list}"
-                )
-            if len(set(depth_periods)) != len(flood_return_list):
-                validation_errors.append(
-                    f"Duplicate return periods detected in FlowDepth columns: {flood_return_list}"
-                )
-            if not validation_errors and set(flux_periods) != set(depth_periods):
-                validation_errors.append(
-                    f"Return period mismatch between MomFlux and FlowDepth columns. "
-                    f"MomFlux periods: {sorted(flux_periods)}, FlowDepth periods: {sorted(depth_periods)}"
-                )
-
-        if validation_errors:
-            raise ValueError(
-                "Input DataFrame validation failed:\n" +
-                "\n".join(f"  - {e}" for e in validation_errors)
-            )
-
         if True:
             # Create building loss and content loss output fields based on return periods
             return_periods = [re.search(r'(\d+y)', item.lower()).group(1) for item in flux_return_list]
@@ -753,12 +716,10 @@ class ttfBuildings:
         # Create FieldMapping first so we can query missing required fields
         self.fields = FieldMapping(gdf, aliases, output_fields, overrides)
 
-        # Combine MomFlux/FlowDepth errors with required-field errors and raise all at once
         required_field_errors = self.fields.get_missing_required_fields(
             gdf, ["occupancy_type", "building_cost", "area", "first_floor_height"]
         )
-        all_errors = validation_errors + required_field_errors
-        if all_errors:
+        if required_field_errors:
             raise ValueError(
                 "Input DataFrame validation failed:\n" +
                 "\n".join(f"  - {e}" for e in all_errors)
@@ -768,7 +729,7 @@ class ttfBuildings:
         id_field = self.fields.get_field_name("id")
         if id_field and id_field in gdf.columns and gdf[id_field].duplicated().any():
             n_dups = int(gdf[id_field].duplicated().sum())
-            logging.warning(
+            logger.warning(
                 f"{n_dups} duplicate building IDs found in column '{id_field}'. "
                 "Results for duplicate buildings may be unreliable."
             )
