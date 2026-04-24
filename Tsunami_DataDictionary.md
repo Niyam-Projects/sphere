@@ -20,6 +20,11 @@
 
 ## HAZARD
 
+> **Note on MomFlux column names**: The `_ft_per_sec` suffix in `MomFlux_*` column names is a naming
+> inconsistency inherited from the TTF tool. The physical units of momentum flux are ft<sup>3</sup>/s<sup>2</sup>
+> (cubic feet per second squared), not ft/s. The descriptions in the table below reflect the
+> correct units.
+
 | FIELD | DESCRIPTION |
 |:---|:---|
 | Point | Unique point ID provided by TTF tool |

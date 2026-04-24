@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -27,15 +28,33 @@ class HazusTsunamiAnalysis:
         bldg_cap = 250_000,
         cont_deductible = 1_250,
         cont_cap = 100_000,
+        units: str = "imperial",
     ):
         """
-        Initializes a HazusFloodAnalysis object.
+        Initializes a HazusTsunamiAnalysis object.
 
         Args:
-            buildings (BuildingPoints): BuildingPoints object.
-            vulnerability_func (VulnerabilityFunction): VulnerabilityFunction object.
-            hazard (Hazard): Hazard object.
+            buildings: Buildings object.
+            vulnerability_func: Vulnerability/fragility function object.
+            depth_grid: Raster reader returning flow depth values.
+            momentum_flux: Raster reader returning momentum flux values.
+            bldg_deductible: Building loss deductible (USD).
+            bldg_cap: Building loss cap (USD).
+            cont_deductible: Content loss deductible (USD).
+            cont_cap: Content loss cap (USD).
+            units: Unit system for all inputs. Only "imperial" is currently supported.
+                   Expected units: flow depth in feet, momentum flux in ft³/s²,
+                   building area in sq ft, building/content cost in USD.
+
+        Raises:
+            NotImplementedError: If units is not "imperial".
         """
+        if units != "imperial":
+            raise NotImplementedError(
+                f"units='{units}' is not supported. "
+                "Only imperial units (feet for depth, ft³/s² for momentum flux) are currently supported."
+            )
+        self.units = units
         self.buildings = buildings
         self.fragility_function = vulnerability_func
         self.depth_grid = depth_grid
@@ -78,18 +97,34 @@ class HazusTsunamiAnalysis:
         # Occupancy class
 
         # TODO: Change out the buildings.fields to be the property access instead.
-        
+
         gdf: gpd.GeoDataFrame = self.buildings.gdf
+        logging.info(f"Starting tsunami loss calculation for {len(gdf)} buildings.")
 
         # First assign the two values from the rasters
         # Assign depth values and bin them in 0.1 increments
         print("Calculating flood depth and flux for buildings...")
-        depth_in_structure = (2.0 / 3.0 * 1250.0 / 381.0 * (self.depth_grid.get_value_vectorized(gdf.geometry))) - self.buildings.first_floor_height.to_frame().values
-        self.buildings.depth_in_structure = depth_in_structure # np.maximum(0, np.floor(np.nan_to_num(depth_in_structure) / 0.1) * 0.1) 
+        raw_depth = self.depth_grid.get_value_vectorized(gdf.geometry)
+        depth_in_structure = (2.0 / 3.0 * 1250.0 / 381.0 * raw_depth) - self.buildings.first_floor_height.to_frame().values
+        self.buildings.depth_in_structure = depth_in_structure
 
         # Assign flux values and bin them in 50 increments, rounding down
         raw_flux = 2.0 / 3.0 * (1250.0 ** 3 / 381.0 ** 3) * self.momentum_flux.get_value_vectorized(gdf.geometry)
-        self.buildings.flux = raw_flux # 50 * np.floor(np.nan_to_num(raw_flux) / 50)
+        self.buildings.flux = raw_flux
+
+        # Plausibility checks — warn if values suggest wrong units or missing data
+        raw_depth_vals = np.asarray(raw_depth).ravel()
+        raw_flux_vals = np.asarray(raw_flux).ravel()
+        if np.any(raw_depth_vals[~np.isnan(raw_depth_vals)] < 0):
+            logging.warning("Negative flow depth values detected. Verify raster units are in feet.")
+        median_depth = float(np.nanmedian(raw_depth_vals))
+        if median_depth > 300:
+            logging.warning(
+                f"Median flow depth is {median_depth:.1f} ft, which is unusually high. "
+                "If depth values are in meters, results will be incorrect — only imperial units (feet) are supported."
+            )
+        if np.all(raw_flux_vals[~np.isnan(raw_flux_vals)] == 0):
+            logging.warning("All momentum flux values are zero. Verify the correct raster was provided.")
 
         # Then we need to apply vulnerabilities to get the median and betas and compute damage states
         self.fragility_function.compute_damage_states(self.buildings)

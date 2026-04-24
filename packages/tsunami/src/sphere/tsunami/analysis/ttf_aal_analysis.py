@@ -1,6 +1,9 @@
+import logging
+# logger = logging.getLogger(__name__)
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+import os
 from sphere.core.schemas.buildings import Buildings
 from sphere.core.schemas.abstract_vulnerability_function import AbstractVulnerabilityFunction
 import warnings
@@ -53,7 +56,7 @@ class ttfAALAnalysis:
             .open("r", encoding="utf-8-sig") as econ_inc_params_file
         ):
             self.econ_inc_params = pd.read_csv(econ_inc_params_file)
-        
+
 
     def calculate_losses(self):
         """
@@ -73,14 +76,25 @@ class ttfAALAnalysis:
         # Occupancy class
 
         # TODO: Change out the buildings.fields to be the property access instead.
-        
+
         gdf: gpd.GeoDataFrame = self.buildings.gdf
+        flux_cols = self.buildings.fields.get_field_name('flux')
+        return_periods = flux_cols if isinstance(flux_cols, list) else [flux_cols]
+        logging.info(
+            f"Starting TTF tsunami loss calculation for {len(gdf)} buildings "
+            f"across {len(return_periods)} return period(s): {return_periods}"
+        )
 
         # Compute depth in structure (flood_depth - first_floor_height) for NSD and content damage
         # Clamp to 0 minimum - negative values mean water doesn't reach structure (no damage)
         flood_depth_cols = self.buildings.fields.get_field_name('flood_depth')
         ffh_field = self.buildings.fields.get_field_name('first_floor_height')
         self.buildings.depth_in_structure = gdf[flood_depth_cols].sub(gdf[ffh_field], axis=0).clip(lower=0)
+
+        # Plausibility check — warn if all flux values are zero
+        flux_vals = gdf[return_periods].values.ravel()
+        if np.all(flux_vals[~np.isnan(flux_vals)] == 0):
+            logging.warning("All momentum flux values are zero. Verify the correct input columns were provided.")
 
         self.fragility_function.compute_damage_states(self.buildings)
         

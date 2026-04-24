@@ -5,17 +5,37 @@ app = marimo.App(width="medium")
 
 with app.setup:
     # Initialization code that runs before all other cells
+    import logging
     import marimo as mo
     import re
     import geopandas as gpd
     import pandas as pd
     from datetime import datetime
     from io import BytesIO
+    from io import StringIO
+    from contextlib import redirect_stdout
+    from contextlib import redirect_stderr
     from shapely.geometry import Point
     from pathlib import Path
     from sphere.core.schemas.buildings import ttfBuildings
     from sphere.tsunami.analysis.ttf_aal_analysis import ttfAALAnalysis
     from sphere.tsunami.default_vulnerability import DefaultTsunamiVulnerability
+
+    import os
+    import sys
+    os.makedirs('./outputs/logs', exist_ok=True)
+    _LOG_FILE = os.path.abspath(f'./outputs/logs/{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+
+    logging.basicConfig(
+        # filename=_LOG_FILE,
+        level=logging.WARN,
+        force=True,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(_LOG_FILE),
+            logging.StreamHandler()
+        ],
+    )
 
 
 @app.cell(hide_code=True)
@@ -224,47 +244,61 @@ def _():
 @app.cell
 def _(column_dict, form):
     mo.stop(form.value is None or form.value["csv_select"] is None, "Please select a CSV file to continue")
-    # _csv_file = mo.cli_args().get("file") or folder_path / form.value["csv_select"]
-    _csv_file = mo.cli_args().get("file") or form.value["csv_select"][0].contents
-    if mo.running_in_notebook:
-        _bldg_deductible = int(form.value["bldg_deductible"])
-        _bldg_cap = int(form.value["bldg_cap"])
-        _cont_deductible = int(form.value["cont_deductible"])
-        _cont_cap = int(form.value["cont_cap"])
+    try:
+        with mo.redirect_stderr():
+            # _csv_file = mo.cli_args().get("file") or folder_path / form.value["csv_select"]
+            _csv_file = mo.cli_args().get("file") or form.value["csv_select"][0].contents
+            if mo.running_in_notebook:
+                _bldg_deductible = int(form.value["bldg_deductible"])
+                _bldg_cap = int(form.value["bldg_cap"])
+                _cont_deductible = int(form.value["cont_deductible"])
+                _cont_cap = int(form.value["cont_cap"])
 
-    else:
-        _bldg_deductible = int(mo.cli_args().get("bldg_deductible") or 5_000)
-        _bldg_cap = int(mo.cli_args().get("bldg_cap") or 250_000)
-        _cont_deductible = int(mo.cli_args().get("cont_deductible") or 1_250)
-        _cont_cap = int(mo.cli_args().get("cont_cap") or 100_000)
-    _df = pd.read_csv(BytesIO(_csv_file))
+            else:
+                _bldg_deductible = int(mo.cli_args().get("bldg_deductible") or 5_000)
+                _bldg_cap = int(mo.cli_args().get("bldg_cap") or 250_000)
+                _cont_deductible = int(mo.cli_args().get("cont_deductible") or 1_250)
+                _cont_cap = int(mo.cli_args().get("cont_cap") or 100_000)
+            _df = pd.read_csv(BytesIO(_csv_file))
 
-    # Create geometry from X, Y coordinates
-    _geometry = [Point(xy) for xy in zip(_df['Longitude'], _df['Latitude'])]
-    gdf = gpd.GeoDataFrame(_df, geometry=_geometry, crs="EPSG:4326")
+            # Create geometry from X, Y coordinates
+            _geometry = [Point(xy) for xy in zip(_df['Longitude'], _df['Latitude'])]
+            gdf = gpd.GeoDataFrame(_df, geometry=_geometry, crs="EPSG:4326")
+            buildings = ttfBuildings(gdf=gdf)
 
-    buildings = ttfBuildings(gdf=gdf)
-    analysis = ttfAALAnalysis(
-        buildings=buildings,
-        vulnerability_func=DefaultTsunamiVulnerability(),
-        bldg_deductible = _bldg_deductible,
-        bldg_cap = _bldg_cap,
-        cont_deductible = _cont_deductible,
-        cont_cap = _cont_cap,
-    )
+            analysis = ttfAALAnalysis(
+                buildings=buildings,
+                vulnerability_func=DefaultTsunamiVulnerability(),
+                bldg_deductible = _bldg_deductible,
+                bldg_cap = _bldg_cap,
+                cont_deductible = _cont_deductible,
+                cont_cap = _cont_cap,
+            )
 
-    results = analysis.calculate_losses()
+            results = analysis.calculate_losses()
 
-    # Reorder the fields
-    _col_order = [_col for _cols in column_dict.values() for _col in _cols]
-    results = reorder_columns(results, _col_order)
-
-    gdf
-    return (results,)
+            # Reorder the fields
+            _col_order = [_col for _cols in column_dict.values() for _col in _cols]
+            results = reorder_columns(results, _col_order)
+            success = True
+    except Exception as _e:
+        with mo.redirect_stdout():
+            print(_e)
+            success = False
+        logging.warning(_e)
+    return gdf, results, success
 
 
 @app.cell
-def _(results):
+def _(gdf, success):
+    mo.stop(not success)
+    gdf
+    return
+
+
+@app.cell
+def _(results, success):
+    mo.stop(not success)
     # 1. Define the base loss categories to aggregate
     _loss_categories = [
         "building_loss", "content_loss", "inventory_loss",
@@ -299,8 +333,8 @@ def _(results):
 
 
 @app.cell
-def _(column_dict, form):
-    mo.stop(form.value is None or form.value["csv_select"] is None)
+def _(column_dict, form, success):
+    mo.stop(form.value is None or form.value["csv_select"] is None or not success)
     cols_select = mo.ui.dropdown(
         options=list(column_dict.keys())[1:],
         value=list(column_dict.keys())[1],
@@ -314,7 +348,8 @@ def _(column_dict, form):
 
 
 @app.cell
-def _(cols_select, column_dict, results):
+def _(cols_select, column_dict, results, success):
+    mo.stop(not success)
     # view_columns = ['NsiID', 'EqBldgType', 'EqDesignLe', 'ValStruct', 'ValCont']
     reorder_columns(results, column_dict["PRIMARY KEY"] + column_dict[cols_select.value])
     # results[view_columns]
@@ -322,7 +357,7 @@ def _(cols_select, column_dict, results):
 
 
 @app.cell
-def _(__sphere_version__, column_dict, form):
+def _(__sphere_version__, column_dict, form, success):
     # Create the form
     _current_date = datetime.now().strftime("%Y%m%d")
     export_form = (
@@ -344,13 +379,13 @@ def _(__sphere_version__, column_dict, form):
         )
         .form(bordered=True, label="## **Export Results to CSV**")
     )
-    export_form if form.value else mo.md('Run analysis first.')
+    export_form if form.value and success else mo.md('Run analysis first.')
     return (export_form,)
 
 
 @app.cell
-def _(column_dict, export_form, results):
-    if export_form.value and export_form.value["filename"]:
+def _(column_dict, export_form, results, success):
+    if export_form.value and success and export_form.value["filename"]:
         with mo.status.spinner(subtitle="Saving csv file ...") as _spinner:
             # Get the filename from the form
             filename = export_form.value["filename"]

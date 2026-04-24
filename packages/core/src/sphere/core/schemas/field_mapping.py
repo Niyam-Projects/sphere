@@ -5,29 +5,39 @@ import pandas as pd
 class FieldMapping():
     """
     Generic mapping class for data fields with input/output field separation.
-    
+
     Provides strong typing support and alias matching for automatic discovery.
     Input fields use alias mechanism, output fields use internal names directly.
     """
 
     def __init__(
-        self, 
-        df: pd.DataFrame, 
+        self,
+        df: pd.DataFrame,
         aliases: Dict[str, List[str]],
         output_fields: Dict[str, str],
-        overrides: Dict[str, str] | None = None
+        overrides: Dict[str, str] | None = None,
+        required_fields: List[str] | None = None,
     ) -> None:
         self._aliases = aliases
         self._output_fields = output_fields
         self._input_fields = set(self._aliases.keys())
         self._overrides = overrides or {}
-        
+
         # Initialize values dictionary - maps internal property names to actual column names
         self._values = {}
-        
+
         # Discover mappings automatically
         discovered = self.discover_mappings(df)
         self._values.update(discovered)
+
+        # Validate required fields are resolvable to actual DataFrame columns
+        if required_fields:
+            missing = self.get_missing_required_fields(df, required_fields)
+            if missing:
+                raise ValueError(
+                    "Required input fields not found in DataFrame:\n" +
+                    "\n".join(f"  {m}" for m in missing)
+                )
 
     def find_best_match(self, df_columns: List[str], property_name: str) -> str | None:
         """
@@ -98,16 +108,23 @@ class FieldMapping():
             match = self.find_best_match(list(df.columns), prop)
             if match:
                 discovered[prop] = match
+                logging.debug(f"Field mapping: '{prop}' -> '{match}'")
             else:
-                # If no match found, use the first alias as fallback
+                # If no match found, use the first alias as fallback.
+                # Required-field failures are surfaced by the required_fields check in __init__.
                 if self._aliases[prop]:
-                    discovered[prop] = self._aliases[prop][0]
+                    fallback = self._aliases[prop][0]
+                    discovered[prop] = fallback
+                    logging.debug(
+                        f"No column match found for '{prop}'; using fallback '{fallback}'. "
+                        f"Tried aliases: {self._aliases[prop]}"
+                    )
                 else:
                     missing_input_fields.append(prop)
-        
-        # Raise error if any input fields are missing and have no aliases
+
+        # Warn if any input fields are missing and have no aliases
         if missing_input_fields:
-            logging.info(f"Required input fields not found in DataFrame and have no aliases: {missing_input_fields}")
+            logging.warning(f"Input fields not found in DataFrame and have no aliases: {missing_input_fields}")
         
         # Check output fields - these are optional
         for prop in self._output_fields.keys():
@@ -123,6 +140,16 @@ class FieldMapping():
             discovered[prop] = override_value
         
         return discovered
+
+    def get_missing_required_fields(self, df: pd.DataFrame, required_fields: List[str]) -> List[str]:
+        """Return error strings for any required fields not resolved to actual DataFrame columns."""
+        missing = []
+        for field in required_fields:
+            resolved = self._values.get(field)
+            if resolved not in df.columns:
+                tried = self._aliases.get(field, [field])
+                missing.append(f"'{field}': tried aliases {tried}")
+        return missing
 
     def set_field_mapping(self, property_name: str, column_name: str) -> None:
         """Manually set a field mapping (acts as override)."""

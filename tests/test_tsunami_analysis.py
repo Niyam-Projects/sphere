@@ -92,7 +92,9 @@ def nsi_buildings_data():
 @pytest.fixture
 def ttf_buildings_data():
     """Load NSI results CSV and prepare building data."""
-    csv_path = Path(__file__).parent / "data" / "Oahu_Output_TTF_Hazus_Extended_wArea.csv"
+    # csv_path = Path(__file__).parent / "data" / "new"/ "Oahu_Output_TTF_Hazus_wArea_HAZUS_Extended.csv"
+    # csv_path = Path(__file__).parent / "data" / "new" / "Output_NSI_WA_pilot_wArea_HAZUS_Extended_wOccType.csv"
+    csv_path = Path(__file__).parent / "data" / "new" / "Output_NSI_OR_pilot_wArea_HAZUS_Extended_wOccType.csv"
     df = pd.read_csv(csv_path)
     
     # Create geometry from X, Y coordinates

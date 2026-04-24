@@ -1,4 +1,6 @@
 from typing import Dict, Any
+import logging
+import re
 import geopandas as gpd
 import pandas as pd
 from sphere.core.schemas.field_mapping import FieldMapping
@@ -7,7 +9,7 @@ class Buildings:
     """
     Base class for building-related data with field mapping and data access.
     """
-    
+
     def __init__(self, gdf: gpd.GeoDataFrame, overrides: Dict[str, str] | None = None):
         self._gdf = gdf
         
@@ -19,8 +21,8 @@ class Buildings:
             "foundation_type": ["foundation_type", "fndtype", "found_type", "fnd_type"],
             "number_stories": ["number_stories", "num_story", "numstories", "stories", "num_floors", "floors"],
             "area": ["area", "sqft", "building_area", "floor_area"],
-            "building_cost": ["buildingcostusd", "building_cost", "hazus_building_values", "val_struct", "cost", "replacement_cost", "building_value"],
-            "content_cost": ["contentcostusd", "content_cost", "hazus_content_values", "val_cont", "contents_cost"],
+            "building_cost": ["buildingcostusd", "building_cost", "hazus_building_values", "val_struct", "valstruct", "cost", "replacement_cost", "building_value"],
+            "content_cost": ["contentcostusd", "content_cost", "hazus_content_values", "val_cont", "valcont", "contents_cost"],
             "inventory_cost": ["inventorycostusd", "inventory_cost", "val_inv", "inv_cost"],
             "eq_building_type": ["eqbldgtypeid", "eqbldgtypeid_si", "eq_building_type", "earthquake_building_type"],
             "eq_design_level": ["eqdesignlevelid", "eqdesignlevelid_si", "eq_design_level", "design_level"], 
@@ -94,8 +96,14 @@ class Buildings:
             "probability_content_moderate": "probability_content_moderate",
             "probability_content_extensive": "probability_content_extensive",
         }
-        
-        self.fields = FieldMapping(gdf, aliases, output_fields, overrides)
+
+        self.fields = FieldMapping(
+            gdf,
+            aliases,
+            output_fields,
+            overrides,
+            required_fields=["occupancy_type", "building_cost", "area", "first_floor_height"],
+        )
 
         # Ensure damage-function ID output columns exist on the GeoDataFrame
         for df_prop in ("bddf_id", "cddf_id", "iddf_id"):
@@ -598,7 +606,7 @@ class ttfBuildings:
             "first_floor_height": ["first_floor_height", "found_ht", "first_floor_ht", "ffh", "floor_height", "firstfloor"],
             "eq_building_type": ["eqbldgtypeid", "eqbldgtypeid_si", "eq_building_type", "earthquake_building_type", "eqbldgtype"],
             "eq_design_level": ["eqdesignlevelid", "eqdesignlevelid_si", "eq_design_level", "design_level", "eqdesignle"],
-            "occupancy_type": ["occupancy_type", "occtype", "occupancy", "occ_type", "building_type"],
+            "occupancy_type": ["occupancy_type", "occtype", "occupancy", "occ_type", "building_type", "soccupid", "occupancy_id"],
         }
         
         # Define output fields
@@ -621,7 +629,6 @@ class ttfBuildings:
         }
 
         # Grab all fields from gdf columns that start with "MomFlux" or "FlowDepth"
-        import re
         flux_return_list = []
         flood_return_list = []
         for col in gdf.columns:
@@ -633,11 +640,46 @@ class ttfBuildings:
                 flood_return_list.append(col)
         aliases["flux"] = [flux_return_list]
         aliases["flood_depth"] = [flood_return_list]
-            
-        # Check that momflux and flowdepth have same return periods
-        if len(flux_return_list) != len(flood_return_list):
-            raise ValueError("Mismatch between MomFlux and FlowDepth return periods in GeoDataFrame columns.")
-        else:
+
+        # Validate flux and flood depth columns — collect all errors before raising
+        validation_errors = []
+
+        if len(flux_return_list) == 0:
+            validation_errors.append(
+                "No MomFlux columns found in input DataFrame. "
+                "Expected columns starting with 'MomFlux' (e.g. MomFlux_100yr_Median_ft_per_sec)."
+            )
+        if len(flood_return_list) == 0:
+            validation_errors.append(
+                "No FlowDepth columns found in input DataFrame. "
+                "Expected columns starting with 'FlowDepth' (e.g. FlowDepth_100yr_Median_ft)."
+            )
+
+        if not validation_errors:
+            flux_periods = [re.search(r'(\d+)yr', c, re.IGNORECASE).group(1) for c in flux_return_list]
+            depth_periods = [re.search(r'(\d+)yr', c, re.IGNORECASE).group(1) for c in flood_return_list]
+
+            if len(set(flux_periods)) != len(flux_return_list):
+                validation_errors.append(
+                    f"Duplicate return periods detected in MomFlux columns: {flux_return_list}"
+                )
+            if len(set(depth_periods)) != len(flood_return_list):
+                validation_errors.append(
+                    f"Duplicate return periods detected in FlowDepth columns: {flood_return_list}"
+                )
+            if not validation_errors and set(flux_periods) != set(depth_periods):
+                validation_errors.append(
+                    f"Return period mismatch between MomFlux and FlowDepth columns. "
+                    f"MomFlux periods: {sorted(flux_periods)}, FlowDepth periods: {sorted(depth_periods)}"
+                )
+
+        if validation_errors:
+            raise ValueError(
+                "Input DataFrame validation failed:\n" +
+                "\n".join(f"  - {e}" for e in validation_errors)
+            )
+
+        if True:
             # Create building loss and content loss output fields based on return periods
             return_periods = [re.search(r'(\d+y)', item.lower()).group(1) for item in flux_return_list]
             bldg_loss_list = ["building_loss_" + rp for rp in return_periods]
@@ -707,7 +749,29 @@ class ttfBuildings:
         self.cont_mod_list = cont_mod_list
         self.cont_ext_list = cont_ext_list
         self.depth_in_structure_list = depth_in_structure_list
+
+        # Create FieldMapping first so we can query missing required fields
         self.fields = FieldMapping(gdf, aliases, output_fields, overrides)
+
+        # Combine MomFlux/FlowDepth errors with required-field errors and raise all at once
+        required_field_errors = self.fields.get_missing_required_fields(
+            gdf, ["occupancy_type", "building_cost", "area", "first_floor_height"]
+        )
+        all_errors = validation_errors + required_field_errors
+        if all_errors:
+            raise ValueError(
+                "Input DataFrame validation failed:\n" +
+                "\n".join(f"  - {e}" for e in all_errors)
+            )
+
+        # Warn if duplicate building IDs are present
+        id_field = self.fields.get_field_name("id")
+        if id_field and id_field in gdf.columns and gdf[id_field].duplicated().any():
+            n_dups = int(gdf[id_field].duplicated().sum())
+            logging.warning(
+                f"{n_dups} duplicate building IDs found in column '{id_field}'. "
+                "Results for duplicate buildings may be unreliable."
+            )
 
     @property
     def gdf(self) -> gpd.GeoDataFrame:
