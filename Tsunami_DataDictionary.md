@@ -20,11 +20,6 @@
 
 ## HAZARD
 
-> **Note on MomFlux column names**: The `_ft_per_sec` suffix in `MomFlux_*` column names is a naming
-> inconsistency inherited from the TTF tool. The physical units of momentum flux are ft<sup>3</sup>/s<sup>2</sup>
-> (cubic feet per second squared), not ft/s. The descriptions in the table below reflect the
-> correct units.
-
 | FIELD | DESCRIPTION |
 |:---|:---|
 | Point | Unique point ID provided by TTF tool |
@@ -56,20 +51,20 @@
 | Speed_1500yr_Median_ft_per_sec | Median velocity in feet per second for the 1500-year return period |
 | Speed_2475yr_Median_ft_per_sec | Median velocity in feet per second for the 2475-year return period |
 | Speed_3000yr_Median_ft_per_sec | Median velocity in feet per second for the 3000-year return period |
-| MomFlux_10yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 10-year return period |
-| MomFlux_25yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 25-year return period |
-| MomFlux_50yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 50-year return period |
-| MomFlux_72yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 72-year return period |
-| MomFlux_100yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 100-year return period |
-| MomFlux_150yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 150-year return period |
-| MomFlux_200yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 200-year return period |
-| MomFlux_250yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 250-year return period |
-| MomFlux_475yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 475-year return period |
-| MomFlux_750yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 750-year return period |
-| MomFlux_975yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 975-year return period |
-| MomFlux_1500yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 1500-year return period |
-| MomFlux_2475yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 2475-year return period |
-| MomFlux_3000yr_Median_ft_per_sec | Median momentum flux in cubic feet per second squared for the 3000-year return period |
+| MomFlux_10yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 10-year return period |
+| MomFlux_25yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 25-year return period |
+| MomFlux_50yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 50-year return period |
+| MomFlux_72yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 72-year return period |
+| MomFlux_100yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 100-year return period |
+| MomFlux_150yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 150-year return period |
+| MomFlux_200yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 200-year return period |
+| MomFlux_250yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 250-year return period |
+| MomFlux_475yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 475-year return period |
+| MomFlux_750yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 750-year return period |
+| MomFlux_975yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 975-year return period |
+| MomFlux_1500yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 1500-year return period |
+| MomFlux_2475yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 2475-year return period |
+| MomFlux_3000yr_Median_ft3_per_sec2 | Median momentum flux in cubic feet per second squared for the 3000-year return period |
 | First_Wet_RP_yrs | First return period in years where flow depth is > 0 |
 | Site_Elevation_ft | Ground elevation at the site |
 | Grid_Index | TTF grid index referencing the source grid for the anchor data |
