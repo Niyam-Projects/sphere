@@ -85,7 +85,7 @@ def _():
         "HAZARD": [
             "FlowDepth_*yr_Median_ft",
             "Speed_*yr_Median_ft_per_sec",
-            "MomFlux_*yr_Median_ft_per_sec",
+            "MomFlux_*yr_Median_ft3_per_sec2",
             "First_Wet_RP_yrs",
             "Site_Elevation_ft",
             "Grid_Index",
