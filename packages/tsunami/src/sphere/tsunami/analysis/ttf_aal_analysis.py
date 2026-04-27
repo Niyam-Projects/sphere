@@ -95,13 +95,187 @@ class ttfAALAnalysis:
             .open("r", encoding="utf-8-sig") as econ_cap_params_file
         ):
             self.econ_cap_params = pd.read_csv(econ_cap_params_file)
-        
+
         with (
             resources.files("sphere.data")
             .joinpath("eqEconIncParams.csv")
             .open("r", encoding="utf-8-sig") as econ_inc_params_file
         ):
             self.econ_inc_params = pd.read_csv(econ_inc_params_file)
+
+        with (
+            resources.files("sphere.data")
+            .joinpath("eqBuildingType.csv")
+            .open("r", encoding="utf-8-sig") as bldg_type_file
+        ):
+            self._bldg_type_defaults = pd.read_csv(bldg_type_file)
+
+        with (
+            resources.files("sphere.data")
+            .joinpath("eqBuildingArea.csv")
+            .open("r", encoding="utf-8-sig") as bldg_area_file
+        ):
+            self._bldg_area_defaults = pd.read_csv(bldg_area_file)
+
+        gdf = buildings.gdf
+
+        # Check for building_height; fill missing/NaN values from eqBuildingType.csv (HeightDefault)
+        bldg_height_col = buildings.fields.get_field_name('building_height')
+        col_absent = bldg_height_col not in gdf.columns
+        if not col_absent:
+            gdf[bldg_height_col] = gdf[bldg_height_col].replace({'': np.nan, 0: np.nan})
+        n_null = 0 if col_absent else int(gdf[bldg_height_col].isna().sum())
+        gdf['DefaultBldgHeight_Flag'] = False
+        if col_absent or n_null > 0:
+            eq_bldg_type_col = buildings.fields.get_field_name('eq_building_type')
+            if eq_bldg_type_col and eq_bldg_type_col in gdf.columns:
+                gdf[eq_bldg_type_col] = pd.to_numeric(gdf[eq_bldg_type_col].astype(str).str.strip(), errors='coerce')
+                height_map = self._bldg_type_defaults.set_index('ID')['HeightDefault']
+                ffh_field = buildings.fields.get_field_name('first_floor_height')
+                if col_absent:
+                    gdf['building_height'] = gdf[eq_bldg_type_col].map(height_map) + gdf[ffh_field]
+                    buildings.fields.set_field_mapping('building_height', 'building_height')
+                    bldg_height_col = 'building_height'
+                    gdf['DefaultBldgHeight_Flag'] = True
+                    logger.info(
+                        "building_height not found in input data; using HeightDefault + first_floor_height from eqBuildingType.csv "
+                        f"(joined on eq_building_type)."
+                    )
+                else:
+                    null_mask = gdf[bldg_height_col].isna()
+                    gdf.loc[null_mask, bldg_height_col] = gdf.loc[null_mask, eq_bldg_type_col].map(height_map) + gdf.loc[null_mask, ffh_field]
+                    gdf.loc[null_mask, 'DefaultBldgHeight_Flag'] = True
+                    logger.info(
+                        f"building_height column '{bldg_height_col}' had {n_null} NaN value(s); "
+                        "filled from eqBuildingType.csv HeightDefault (joined on eq_building_type)."
+                    )
+                n_still_null = int(gdf[bldg_height_col].isna().sum())
+                if n_still_null:
+                    logger.warning(
+                        f"{n_still_null} building(s) still have NaN building_height after applying defaults "
+                        "(no matching BldgType in eqBuildingType.csv)."
+                    )
+            else:
+                logger.warning(
+                    "building_height not found/has NaN values and eq_building_type column is also absent; "
+                    "cannot fill defaults from eqBuildingType.csv."
+                )
+        else:
+            logger.info(f"building_height found in input data (column: '{bldg_height_col}'); using provided values.")
+
+        # Check for lmh_rise; fill from eqBuildingType.csv (LMH_Rise) if absent/null
+        lmh_rise_col = buildings.fields.get_field_name('lmh_rise')
+        col_absent = lmh_rise_col not in gdf.columns
+        if not col_absent:
+            gdf[lmh_rise_col] = gdf[lmh_rise_col].replace({'': np.nan})
+        n_null = 0 if col_absent else int(gdf[lmh_rise_col].isna().sum())
+        if col_absent or n_null > 0:
+            eq_bldg_type_col = buildings.fields.get_field_name('eq_building_type')
+            if eq_bldg_type_col and eq_bldg_type_col in gdf.columns:
+                gdf[eq_bldg_type_col] = pd.to_numeric(gdf[eq_bldg_type_col].astype(str).str.strip(), errors='coerce')
+                rise_map = self._bldg_type_defaults.set_index('ID')['LMH_Rise']
+                if col_absent:
+                    gdf['lmh_rise'] = gdf[eq_bldg_type_col].map(rise_map)
+                    buildings.fields.set_field_mapping('lmh_rise', 'lmh_rise')
+                    lmh_rise_col = 'lmh_rise'
+                    logger.info("lmh_rise not found in input data; using LMH_Rise from eqBuildingType.csv (joined on eq_building_type).")
+                else:
+                    null_mask = gdf[lmh_rise_col].isna()
+                    gdf.loc[null_mask, lmh_rise_col] = gdf.loc[null_mask, eq_bldg_type_col].map(rise_map)
+                    logger.info(
+                        f"lmh_rise column '{lmh_rise_col}' had {n_null} NaN value(s); "
+                        "filled from eqBuildingType.csv LMH_Rise (joined on eq_building_type)."
+                    )
+                n_still_null = int(gdf[lmh_rise_col].isna().sum())
+                if n_still_null:
+                    logger.warning(
+                        f"{n_still_null} building(s) still have NaN lmh_rise after applying defaults "
+                        "(no matching ID in eqBuildingType.csv)."
+                    )
+            else:
+                logger.warning(
+                    "lmh_rise not found/has NaN values and eq_building_type column is also absent; "
+                    "cannot fill defaults from eqBuildingType.csv."
+                )
+        else:
+            logger.info(f"lmh_rise found in input data (column: '{lmh_rise_col}'); using provided values.")
+
+        # Check for eq_building_type_class; populate from eqBuildingType.csv (BldgType) if absent/null
+        eq_bldg_type_class_col = buildings.fields.get_field_name('eq_building_type_class')
+        col_absent = eq_bldg_type_class_col not in gdf.columns
+        if not col_absent:
+            gdf[eq_bldg_type_class_col] = gdf[eq_bldg_type_class_col].replace({'': np.nan})
+        n_null = 0 if col_absent else int(gdf[eq_bldg_type_class_col].isna().sum())
+        if col_absent or n_null > 0:
+            eq_bldg_type_col = buildings.fields.get_field_name('eq_building_type')
+            if eq_bldg_type_col and eq_bldg_type_col in gdf.columns:
+                gdf[eq_bldg_type_col] = pd.to_numeric(gdf[eq_bldg_type_col].astype(str).str.strip(), errors='coerce')
+                class_map = self._bldg_type_defaults.set_index('ID')['BldgType']
+                if col_absent:
+                    gdf['eq_building_type_class'] = gdf[eq_bldg_type_col].map(class_map)
+                    buildings.fields.set_field_mapping('eq_building_type_class', 'eq_building_type_class')
+                    eq_bldg_type_class_col = 'eq_building_type_class'
+                    logger.info("eq_building_type_class not found in input data; using BldgType from eqBuildingType.csv (joined on eq_building_type).")
+                else:
+                    null_mask = gdf[eq_bldg_type_class_col].isna()
+                    gdf.loc[null_mask, eq_bldg_type_class_col] = gdf.loc[null_mask, eq_bldg_type_col].map(class_map)
+                    logger.info(
+                        f"eq_building_type_class column '{eq_bldg_type_class_col}' had {n_null} NaN value(s); "
+                        "filled from eqBuildingType.csv BldgType (joined on eq_building_type)."
+                    )
+                n_still_null = int(gdf[eq_bldg_type_class_col].isna().sum())
+                if n_still_null:
+                    logger.warning(
+                        f"{n_still_null} building(s) still have NaN eq_building_type_class after applying defaults "
+                        "(no matching ID in eqBuildingType.csv)."
+                    )
+            else:
+                logger.warning(
+                    "eq_building_type_class not found/has NaN values and eq_building_type column is also absent; "
+                    "cannot fill defaults from eqBuildingType.csv."
+                )
+        else:
+            logger.info(f"eq_building_type_class found in input data (column: '{eq_bldg_type_class_col}'); using provided values.")
+
+        # Check for area; fill missing/NaN values from eqBuildingArea.csv (SquareFootage)
+        area_col = buildings.fields.get_field_name('area')
+        col_absent = area_col not in gdf.columns
+        if not col_absent:
+            gdf[area_col] = gdf[area_col].replace({'': np.nan, 0: np.nan})
+        n_null = 0 if col_absent else int(gdf[area_col].isna().sum())
+        if col_absent or n_null > 0:
+            occ_col = buildings.fields.get_field_name('occupancy_type')
+            if occ_col and occ_col in gdf.columns:
+                gdf[occ_col] = gdf[occ_col].astype(str).str.strip().replace('nan', np.nan)
+                area_map = self._bldg_area_defaults.set_index('Occupancy')['SquareFootage']
+                if col_absent:
+                    gdf['area'] = gdf[occ_col].map(area_map)
+                    buildings.fields.set_field_mapping('area', 'area')
+                    area_col = 'area'
+                    logger.info(
+                        "area not found in input data; using SquareFootage from eqBuildingArea.csv "
+                        "(joined on occupancy_type)."
+                    )
+                else:
+                    null_mask = gdf[area_col].isna()
+                    gdf.loc[null_mask, area_col] = gdf.loc[null_mask, occ_col].map(area_map)
+                    logger.info(
+                        f"area column '{area_col}' had {n_null} NaN value(s); "
+                        "filled from eqBuildingArea.csv SquareFootage (joined on occupancy_type)."
+                    )
+                n_still_null = int(gdf[area_col].isna().sum())
+                if n_still_null:
+                    logger.warning(
+                        f"{n_still_null} building(s) still have NaN area after applying defaults "
+                        "(no matching Occupancy in eqBuildingArea.csv)."
+                    )
+            else:
+                logger.warning(
+                    "area not found/has NaN values and occupancy_type column is also absent; "
+                    "cannot fill defaults from eqBuildingArea.csv."
+                )
+        else:
+            logger.info(f"area found in input data (column: '{area_col}'); using provided values.")
 
 
     def calculate_losses(self):
@@ -330,6 +504,56 @@ class ttfAALAnalysis:
             dtype=float
         )
 
+        # New flood-fill loss calculations (depth in structure / building height)
+        bldg_height_field = self.buildings.fields.get_field_name('building_height')
+        dis_cols = self.buildings.fields.get_field_name('depth_in_structure')
+        fill_ratio = merged_df[dis_cols].div(
+            merged_df[bldg_height_field].values, axis=0
+        ).clip(0, 1)
+
+        cmp_nonstr_repair = merged_df['CmpNsaRepair'] + merged_df['CmpNsdRepair']
+
+        # NewNonStructuralLoss = fill_ratio * ValStruct * (CmpNsaRepair + CmpNsdRepair) / 100
+        merged_df[self.buildings.fields.get_field_name('new_nonstruct_loss')] = pd.DataFrame(
+            fill_ratio.mul(cmp_nonstr_repair.values, axis=0).values / 100.0,
+            dtype=float
+        ).mul(merged_df[self.buildings.fields.get_field_name('building_cost')].values, axis=0)
+
+        # NewContentLoss = fill_ratio * ValCont * CmpCntRepair / 100
+        merged_df[self.buildings.fields.get_field_name('new_content_loss')] = pd.DataFrame(
+            fill_ratio.mul(merged_df['CmpCntRepair'].values, axis=0).values / 100.0,
+            dtype=float
+        ).mul(merged_df[self.buildings.fields.get_field_name('content_cost')].values, axis=0)
+
+        # NewInventoryLoss = fill_ratio * (Area * GrossSales * BusinessInv%) * (CmpNsaRepair + CmpNsdRepair) / 100
+        new_inv_base = merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'] * merged_df['BusinessInv'] / 100
+        merged_df[self.buildings.fields.get_field_name('new_inventory_loss')] = pd.DataFrame(
+            fill_ratio.mul(cmp_nonstr_repair.values, axis=0).values / 100.0,
+            dtype=float
+        ).mul(new_inv_base.values, axis=0)
+
+        # NewTotalLoss = NewNonStructuralLoss + NewContentLoss + NewInventoryLoss
+        new_nonstruct_cols = self.buildings.fields.get_field_name('new_nonstruct_loss')
+        new_content_cols = self.buildings.fields.get_field_name('new_content_loss')
+        new_inventory_cols = self.buildings.fields.get_field_name('new_inventory_loss')
+        merged_df[self.buildings.fields.get_field_name('new_total_loss')] = pd.DataFrame(
+            merged_df[new_nonstruct_cols].values +
+            merged_df[new_content_cols].values +
+            merged_df[new_inventory_cols].values,
+            dtype=float
+        )
+
+        # NewTotalEconomicLoss = New_building_loss + relocation + income + rental + wage
+        new_bldg_loss_cols = self.buildings.fields.get_field_name('new_total_loss')
+        merged_df[self.buildings.fields.get_field_name('new_total_econ_loss')] = pd.DataFrame(
+            merged_df[new_bldg_loss_cols].values +
+            merged_df[self.buildings.fields.get_field_name('relocation_loss')].values +
+            merged_df[self.buildings.fields.get_field_name('income_loss')].values +
+            merged_df[self.buildings.fields.get_field_name('rental_loss')].values +
+            merged_df[self.buildings.fields.get_field_name('wage_loss')].values,
+            dtype=float
+        )
+
         # Compute Bulding Loss AAL
         def calc_aal(losses_df):
             # Get return periods from column names using regex
@@ -422,6 +646,53 @@ class ttfAALAnalysis:
             merged_df[self.buildings.fields.get_field_name('gross_content_loss')]
         )
 
+        # Compute Gross New Total Loss (deductible/cap applied to combined new total)
+        merged_df[self.buildings.fields.get_field_name('gross_new_total_loss')] = adjust_loss_dedlim(
+            merged_df[self.buildings.fields.get_field_name('new_total_loss')],
+            self.bldg_deductible,
+            self.bldg_cap,
+        )
+
+        # Compute Gross New Content Loss (deductible/cap applied to new content loss)
+        merged_df[self.buildings.fields.get_field_name('gross_New_content_loss')] = adjust_loss_dedlim(
+            merged_df[self.buildings.fields.get_field_name('new_content_loss')],
+            self.cont_deductible,
+            self.cont_cap,
+        )
+
+        # Compute New Loss AALs
+        merged_df[self.buildings.fields.get_field_name('new_nonstruct_loss_aal')] = calc_aal(
+            merged_df[self.buildings.fields.get_field_name('new_nonstruct_loss')]
+        )
+        merged_df[self.buildings.fields.get_field_name('new_content_loss_aal')] = calc_aal(
+            merged_df[self.buildings.fields.get_field_name('new_content_loss')]
+        )
+        merged_df[self.buildings.fields.get_field_name('new_inventory_loss_aal')] = calc_aal(
+            merged_df[self.buildings.fields.get_field_name('new_inventory_loss')]
+        )
+        merged_df[self.buildings.fields.get_field_name('new_total_loss_aal')] = calc_aal(
+            merged_df[self.buildings.fields.get_field_name('new_total_loss')]
+        )
+        merged_df[self.buildings.fields.get_field_name('gross_new_total_loss_aal')] = calc_aal(
+            merged_df[self.buildings.fields.get_field_name('gross_new_total_loss')]
+        )
+        merged_df[self.buildings.fields.get_field_name('gross_New_content_loss_aal')] = calc_aal(
+            merged_df[self.buildings.fields.get_field_name('gross_New_content_loss')]
+        )
+        merged_df[self.buildings.fields.get_field_name('NewBldgAAL_lossratio_USDperM')] = (
+            merged_df[self.buildings.fields.get_field_name('new_total_loss_aal')] /
+            (merged_df[self.buildings.fields.get_field_name('building_cost')] / 1_000_000)
+        )
+        merged_df[self.buildings.fields.get_field_name('GrossNewBldgAAL_LossRatio_USDperM')] = (
+            merged_df[self.buildings.fields.get_field_name('gross_new_total_loss_aal')] /
+            (merged_df[self.buildings.fields.get_field_name('building_cost')] / 1_000_000)
+        )
+        merged_df[self.buildings.fields.get_field_name('NewCapitalLoss_AAL')] = (
+            merged_df[self.buildings.fields.get_field_name('new_total_loss_aal')]
+                .add(merged_df[self.buildings.fields.get_field_name('new_content_loss_aal')].values)
+                .add(merged_df[self.buildings.fields.get_field_name('new_inventory_loss_aal')].values)
+        )
+
         # Compute Capital Loss AAL (building + content + inventory)
         merged_df[self.buildings.fields.get_field_name('CapitalLoss_AAL')] = (
             merged_df[self.buildings.fields.get_field_name('building_loss_aal')]
@@ -440,6 +711,11 @@ class ttfAALAnalysis:
         # Compute Total Economic Loss AAL (capital + income)
         merged_df[self.buildings.fields.get_field_name('TotalEconomicLoss_AAL')] = (
             merged_df[self.buildings.fields.get_field_name('CapitalLoss_AAL')]
+                .add(merged_df[self.buildings.fields.get_field_name('IncomeLoss_AAL')].values)
+        )
+
+        merged_df[self.buildings.fields.get_field_name('NewTotalEconomicLoss_AAL')] = (
+            merged_df[self.buildings.fields.get_field_name('NewCapitalLoss_AAL')]
                 .add(merged_df[self.buildings.fields.get_field_name('IncomeLoss_AAL')].values)
         )
 

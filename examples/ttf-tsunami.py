@@ -80,6 +80,7 @@ def _():
             "Longitude",
             "Latitude",
             "Point",
+            "DefaultBldgHeight_Flag",
         ],
         "HAZARD": [
             "FlowDepth_*yr_Median_ft",
@@ -170,6 +171,11 @@ def _():
             "rental_loss_*y",
             "wage_loss_*y",
             "total_economic_loss_*y",
+            "NewNonStrLoss_*y",
+            "New_content_loss_*y",
+            "New_inventory_loss_*y",
+            "New_building_loss_*y",
+            "New_total_economic_loss_*y",
         ],
         "LOSSES (AVERAGE ANNUALIZED LOSS)": [
             "building_loss_aal",
@@ -183,6 +189,13 @@ def _():
             "CapitalLoss_AAL",
             "IncomeLoss_AAL",
             "TotalEconomicLoss_AAL",
+            "New_building_loss_aal",
+            "NewBldgAAL_lossratio_USDperM",
+            "New_content_loss_aal",
+            "New_inventory_loss_aal",
+            "NewNonStrLoss_aal",
+            "NewCapitalLoss_AAL",
+            "NewTotalEconomicLoss_AAL",
         ],
         "LOSSES (ACTUARIAL LOSS)": [
             "gross_building_loss_*y",
@@ -190,6 +203,11 @@ def _():
             "gross_building_loss_aal",
             "GrossBldgAAL_LossRatio_USDperM",
             "gross_content_loss_aal",
+            "gross_New_building_loss_*y",
+            "gross_New_content_loss_*y",
+            "gross_New_building_loss_aal",
+            "GrossNewBldgAAL_LossRatio_USDperM",
+            "gross_New_content_loss_aal",
         ],
     }
     return (column_dict,)

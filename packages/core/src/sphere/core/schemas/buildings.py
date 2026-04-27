@@ -606,8 +606,11 @@ class ttfBuildings:
             "inventory_cost": ["inventorycostusd", "inventory_cost", "val_inv", "inv_cost"],
             "first_floor_height": ["first_floor_height", "found_ht", "first_floor_ht", "ffh", "floor_height", "firstfloor"],
             "eq_building_type": ["eqbldgtypeid", "eqbldgtypeid_si", "eq_building_type", "earthquake_building_type", "eqbldgtype"],
+            "eq_building_type_class": ["eqbldgtypeclass", "eq_building_type_class", "bldgtype"],
             "eq_design_level": ["eqdesignlevelid", "eqdesignlevelid_si", "eq_design_level", "design_level", "eqdesignle"],
             "occupancy_type": ["occupancy_type", "occtype", "occupancy", "occ_type", "building_type", "soccupid", "occupancy_id"],
+            "building_height": ["bldgheight_ft", "building_height", "bldg_height", "bldgheight", "height", "bldg_ht", ""],
+            "lmh_rise": ["lmh_rise", "lmn_rise", "rise", "bldg_rise"],
         }
         
         # Define output fields
@@ -627,6 +630,17 @@ class ttfBuildings:
             "TotalEconomicLoss_AAL": "TotalEconomicLoss_AAL",
             "BldgAAL_LossRatio_USDperM": "BldgAAL_LossRatio_USDperM",
             "GrossBldgAAL_LossRatio_USDperM": "GrossBldgAAL_LossRatio_USDperM",
+            "DefaultBldgHeight_Flag": "DefaultBldgHeight_Flag",
+            "new_nonstruct_loss_aal": "NewNonStrLoss_aal",
+            "new_content_loss_aal": "New_content_loss_aal",
+            "new_inventory_loss_aal": "New_inventory_loss_aal",
+            "new_total_loss_aal": "New_building_loss_aal",
+            "gross_new_total_loss_aal": "gross_New_building_loss_aal",
+            "NewBldgAAL_lossratio_USDperM": "NewBldgAAL_lossratio_USDperM",
+            "GrossNewBldgAAL_LossRatio_USDperM": "GrossNewBldgAAL_LossRatio_USDperM",
+            "NewCapitalLoss_AAL": "NewCapitalLoss_AAL",
+            "NewTotalEconomicLoss_AAL": "NewTotalEconomicLoss_AAL",
+            "gross_New_content_loss_aal": "gross_New_content_loss_aal",
         }
 
         # Grab all fields from gdf columns that start with "MomFlux" or "FlowDepth"
@@ -696,6 +710,32 @@ class ttfBuildings:
                 output_fields[rent] = rent
                 output_fields[wage] = wage
                 output_fields[inv] = inv
+            new_nonstruct_loss_list = ["NewNonStrLoss_" + rp for rp in return_periods]
+            new_content_loss_list = ["New_content_loss_" + rp for rp in return_periods]
+            new_inventory_loss_list = ["New_inventory_loss_" + rp for rp in return_periods]
+            new_total_loss_list = ["New_building_loss_" + rp for rp in return_periods]
+            gross_new_total_loss_list = ["gross_New_building_loss_" + rp for rp in return_periods]
+            new_total_econ_loss_list = ["New_total_economic_loss_" + rp for rp in return_periods]
+            gross_new_content_loss_list = [f"gross_{name}" for name in new_content_loss_list]
+            aliases["new_nonstruct_loss"] = [new_nonstruct_loss_list]
+            aliases["new_content_loss"] = [new_content_loss_list]
+            aliases["new_inventory_loss"] = [new_inventory_loss_list]
+            aliases["new_total_loss"] = [new_total_loss_list]
+            aliases["gross_new_total_loss"] = [gross_new_total_loss_list]
+            aliases["new_total_econ_loss"] = [new_total_econ_loss_list]
+            aliases["gross_New_content_loss"] = [gross_new_content_loss_list]
+            for nn, nc, ni, nt, gnt, nte, gnc in zip(
+                new_nonstruct_loss_list, new_content_loss_list, new_inventory_loss_list,
+                new_total_loss_list, gross_new_total_loss_list,
+                new_total_econ_loss_list, gross_new_content_loss_list
+            ):
+                output_fields[nn] = nn
+                output_fields[nc] = nc
+                output_fields[ni] = ni
+                output_fields[nt] = nt
+                output_fields[gnt] = gnt
+                output_fields[nte] = nte
+                output_fields[gnc] = gnc
 
         self.flux_return_list = flux_return_list
         self.flood_return_list = flood_return_list
@@ -712,17 +752,24 @@ class ttfBuildings:
         self.cont_mod_list = cont_mod_list
         self.cont_ext_list = cont_ext_list
         self.depth_in_structure_list = depth_in_structure_list
+        self.new_nonstruct_loss_list = new_nonstruct_loss_list
+        self.new_content_loss_list = new_content_loss_list
+        self.new_inventory_loss_list = new_inventory_loss_list
+        self.new_total_loss_list = new_total_loss_list
+        self.gross_new_total_loss_list = gross_new_total_loss_list
+        self.new_total_econ_loss_list = new_total_econ_loss_list
+        self.gross_new_content_loss_list = gross_new_content_loss_list
 
         # Create FieldMapping first so we can query missing required fields
         self.fields = FieldMapping(gdf, aliases, output_fields, overrides)
 
         required_field_errors = self.fields.get_missing_required_fields(
-            gdf, ["occupancy_type", "building_cost", "area", "first_floor_height"]
+            gdf, ["occupancy_type", "building_cost", "first_floor_height"]
         )
         if required_field_errors:
             raise ValueError(
                 "Input DataFrame validation failed:\n" +
-                "\n".join(f"  - {e}" for e in all_errors)
+                "\n".join(f"  - {e}" for e in required_field_errors)
             )
 
         # Warn if duplicate building IDs are present

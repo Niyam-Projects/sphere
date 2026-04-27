@@ -463,13 +463,83 @@
 | total_economic_loss_1500y | Total economic loss ($) for the 1500-year return period |
 | total_economic_loss_2475y | Total economic loss ($) for the 2475-year return period |
 | total_economic_loss_3000y | Total economic loss ($) for the 3000-year return period |
+| NewNonStrLoss_10y | New non-structural flood-fill loss ($) for the 10-year return period |
+| NewNonStrLoss_25y | New non-structural flood-fill loss ($) for the 25-year return period |
+| NewNonStrLoss_50y | New non-structural flood-fill loss ($) for the 50-year return period |
+| NewNonStrLoss_72y | New non-structural flood-fill loss ($) for the 72-year return period |
+| NewNonStrLoss_100y | New non-structural flood-fill loss ($) for the 100-year return period |
+| NewNonStrLoss_150y | New non-structural flood-fill loss ($) for the 150-year return period |
+| NewNonStrLoss_200y | New non-structural flood-fill loss ($) for the 200-year return period |
+| NewNonStrLoss_250y | New non-structural flood-fill loss ($) for the 250-year return period |
+| NewNonStrLoss_475y | New non-structural flood-fill loss ($) for the 475-year return period |
+| NewNonStrLoss_750y | New non-structural flood-fill loss ($) for the 750-year return period |
+| NewNonStrLoss_975y | New non-structural flood-fill loss ($) for the 975-year return period |
+| NewNonStrLoss_1500y | New non-structural flood-fill loss ($) for the 1500-year return period |
+| NewNonStrLoss_2475y | New non-structural flood-fill loss ($) for the 2475-year return period |
+| NewNonStrLoss_3000y | New non-structural flood-fill loss ($) for the 3000-year return period |
+| New_content_loss_10y | New content flood-fill loss ($) for the 10-year return period |
+| New_content_loss_25y | New content flood-fill loss ($) for the 25-year return period |
+| New_content_loss_50y | New content flood-fill loss ($) for the 50-year return period |
+| New_content_loss_72y | New content flood-fill loss ($) for the 72-year return period |
+| New_content_loss_100y | New content flood-fill loss ($) for the 100-year return period |
+| New_content_loss_150y | New content flood-fill loss ($) for the 150-year return period |
+| New_content_loss_200y | New content flood-fill loss ($) for the 200-year return period |
+| New_content_loss_250y | New content flood-fill loss ($) for the 250-year return period |
+| New_content_loss_475y | New content flood-fill loss ($) for the 475-year return period |
+| New_content_loss_750y | New content flood-fill loss ($) for the 750-year return period |
+| New_content_loss_975y | New content flood-fill loss ($) for the 975-year return period |
+| New_content_loss_1500y | New content flood-fill loss ($) for the 1500-year return period |
+| New_content_loss_2475y | New content flood-fill loss ($) for the 2475-year return period |
+| New_content_loss_3000y | New content flood-fill loss ($) for the 3000-year return period |
+| New_inventory_loss_10y | New inventory flood-fill loss ($) for the 10-year return period |
+| New_inventory_loss_25y | New inventory flood-fill loss ($) for the 25-year return period |
+| New_inventory_loss_50y | New inventory flood-fill loss ($) for the 50-year return period |
+| New_inventory_loss_72y | New inventory flood-fill loss ($) for the 72-year return period |
+| New_inventory_loss_100y | New inventory flood-fill loss ($) for the 100-year return period |
+| New_inventory_loss_150y | New inventory flood-fill loss ($) for the 150-year return period |
+| New_inventory_loss_200y | New inventory flood-fill loss ($) for the 200-year return period |
+| New_inventory_loss_250y | New inventory flood-fill loss ($) for the 250-year return period |
+| New_inventory_loss_475y | New inventory flood-fill loss ($) for the 475-year return period |
+| New_inventory_loss_750y | New inventory flood-fill loss ($) for the 750-year return period |
+| New_inventory_loss_975y | New inventory flood-fill loss ($) for the 975-year return period |
+| New_inventory_loss_1500y | New inventory flood-fill loss ($) for the 1500-year return period |
+| New_inventory_loss_2475y | New inventory flood-fill loss ($) for the 2475-year return period |
+| New_inventory_loss_3000y | New inventory flood-fill loss ($) for the 3000-year return period |
+| New_building_loss_10y | New total building flood-fill loss ($) for the 10-year return period |
+| New_building_loss_25y | New total building flood-fill loss ($) for the 25-year return period |
+| New_building_loss_50y | New total building flood-fill loss ($) for the 50-year return period |
+| New_building_loss_72y | New total building flood-fill loss ($) for the 72-year return period |
+| New_building_loss_100y | New total building flood-fill loss ($) for the 100-year return period |
+| New_building_loss_150y | New total building flood-fill loss ($) for the 150-year return period |
+| New_building_loss_200y | New total building flood-fill loss ($) for the 200-year return period |
+| New_building_loss_250y | New total building flood-fill loss ($) for the 250-year return period |
+| New_building_loss_475y | New total building flood-fill loss ($) for the 475-year return period |
+| New_building_loss_750y | New total building flood-fill loss ($) for the 750-year return period |
+| New_building_loss_975y | New total building flood-fill loss ($) for the 975-year return period |
+| New_building_loss_1500y | New total building flood-fill loss ($) for the 1500-year return period |
+| New_building_loss_2475y | New total building flood-fill loss ($) for the 2475-year return period |
+| New_building_loss_3000y | New total building flood-fill loss ($) for the 3000-year return period |
+| New_total_economic_loss_10y | New total economic flood-fill loss ($) for the 10-year return period |
+| New_total_economic_loss_25y | New total economic flood-fill loss ($) for the 25-year return period |
+| New_total_economic_loss_50y | New total economic flood-fill loss ($) for the 50-year return period |
+| New_total_economic_loss_72y | New total economic flood-fill loss ($) for the 72-year return period |
+| New_total_economic_loss_100y | New total economic flood-fill loss ($) for the 100-year return period |
+| New_total_economic_loss_150y | New total economic flood-fill loss ($) for the 150-year return period |
+| New_total_economic_loss_200y | New total economic flood-fill loss ($) for the 200-year return period |
+| New_total_economic_loss_250y | New total economic flood-fill loss ($) for the 250-year return period |
+| New_total_economic_loss_475y | New total economic flood-fill loss ($) for the 475-year return period |
+| New_total_economic_loss_750y | New total economic flood-fill loss ($) for the 750-year return period |
+| New_total_economic_loss_975y | New total economic flood-fill loss ($) for the 975-year return period |
+| New_total_economic_loss_1500y | New total economic flood-fill loss ($) for the 1500-year return period |
+| New_total_economic_loss_2475y | New total economic flood-fill loss ($) for the 2475-year return period |
+| New_total_economic_loss_3000y | New total economic flood-fill loss ($) for the 3000-year return period |
 
 ## LOSSES (AVERAGE ANNUALIZED LOSS)
 
 | FIELD | DESCRIPTION |
 |:---|:---|
 | building_loss_aal | Building Average Annual Loss ($) |
-| BldgAAL_lossratio_USDperM | Building Average Annual Loss Ratio ($ per $1 million building structure replacement cost) |
+| BldgAAL_LossRatio_USDperM | Building Average Annual Loss Ratio ($ per $1 million building structure replacement cost) |
 | content_loss_aal | Content Average Annual Loss ($) |
 | inventory_loss_aal | Inventory Average Annual Loss ($) |
 | relocation_loss_aal | Relocation Average Annual Loss ($) |
@@ -479,6 +549,13 @@
 | CapitalLoss_AAL | Capital Related (i.e., building+content+inventory) Average Annual Loss ($) |
 | IncomeLoss_AAL | Income Related (i.e., relocation+proprietor income+rental+wage) Average Annual Loss ($) |
 | TotalEconomicLoss_AAL | Total Economic (i.e., Capital+Income) Average Annual Loss ($) |
+| New_building_loss_aal | New total building flood-fill Average Annual Loss ($) |
+| NewBldgAAL_lossratio_USDperM | New building flood-fill Average Annual Loss Ratio ($ per $1 million building structure replacement cost) |
+| New_content_loss_aal | New content flood-fill Average Annual Loss ($) |
+| New_inventory_loss_aal | New inventory flood-fill Average Annual Loss ($) |
+| NewNonStrLoss_aal | New non-structural flood-fill Average Annual Loss ($) |
+| NewCapitalLoss_AAL | New capital flood-fill (i.e., New_building+New_content+New_inventory) Average Annual Loss ($) |
+| NewTotalEconomicLoss_AAL | New total economic flood-fill (i.e., NewCapital+Income) Average Annual Loss ($) |
 
 ## LOSSES (ACTUARIAL LOSS)
 
@@ -501,4 +578,41 @@
 | gross_building_loss_aal | Gross building (i.e., deductibles and limits applied) Average Annual Loss ($) |
 | GrossBldgAAL_LossRatio_USDperM | Gross building (i.e., deductibles and limits applied) Average Annual Loss Ratio ($ per $1 million building structure replacement cost) |
 | gross_content_loss_aal | Gross content (i.e., deductibles and limits applied) Average Annual Loss ($) |
+| gross_New_building_loss_10y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 10-year return period |
+| gross_New_building_loss_25y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 25-year return period |
+| gross_New_building_loss_50y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 50-year return period |
+| gross_New_building_loss_72y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 72-year return period |
+| gross_New_building_loss_100y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 100-year return period |
+| gross_New_building_loss_150y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 150-year return period |
+| gross_New_building_loss_200y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 200-year return period |
+| gross_New_building_loss_250y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 250-year return period |
+| gross_New_building_loss_475y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 475-year return period |
+| gross_New_building_loss_750y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 750-year return period |
+| gross_New_building_loss_975y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 975-year return period |
+| gross_New_building_loss_1500y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 1500-year return period |
+| gross_New_building_loss_2475y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 2475-year return period |
+| gross_New_building_loss_3000y | Gross new building flood-fill (i.e., deductibles and limits applied) loss ($) for the 3000-year return period |
+| gross_New_building_loss_aal | Gross new building flood-fill (i.e., deductibles and limits applied) Average Annual Loss ($) |
+| GrossNewBldgAAL_LossRatio_USDperM | Gross new building flood-fill (i.e., deductibles and limits applied) Average Annual Loss Ratio ($ per $1 million building structure replacement cost) |
+| gross_New_content_loss_10y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 10-year return period |
+| gross_New_content_loss_25y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 25-year return period |
+| gross_New_content_loss_50y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 50-year return period |
+| gross_New_content_loss_72y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 72-year return period |
+| gross_New_content_loss_100y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 100-year return period |
+| gross_New_content_loss_150y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 150-year return period |
+| gross_New_content_loss_200y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 200-year return period |
+| gross_New_content_loss_250y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 250-year return period |
+| gross_New_content_loss_475y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 475-year return period |
+| gross_New_content_loss_750y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 750-year return period |
+| gross_New_content_loss_975y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 975-year return period |
+| gross_New_content_loss_1500y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 1500-year return period |
+| gross_New_content_loss_2475y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 2475-year return period |
+| gross_New_content_loss_3000y | Gross new content flood-fill (i.e., deductibles and limits applied) loss ($) for the 3000-year return period |
+| gross_New_content_loss_aal | Gross new content flood-fill (i.e., deductibles and limits applied) Average Annual Loss ($) |
+
+## COMPUTED FIELDS
+
+| FIELD | DESCRIPTION |
+|:---|:---|
+| DefaultBldgHeight_Flag | True if building height was not provided and was defaulted from eqBuildingType.csv |
 
