@@ -143,8 +143,10 @@ class ttfAALAnalysis:
                     )
                 else:
                     null_mask = gdf[bldg_height_col].isna()
-                    gdf.loc[null_mask, bldg_height_col] = gdf.loc[null_mask, eq_bldg_type_col].map(height_map) + gdf.loc[null_mask, ffh_field]
-                    gdf.loc[null_mask, 'DefaultBldgHeight_Flag'] = True
+                    gdf[bldg_height_col] = gdf[bldg_height_col].fillna(
+                        gdf[eq_bldg_type_col].map(height_map) + gdf[ffh_field]
+                    )
+                    gdf['DefaultBldgHeight_Flag'] = gdf['DefaultBldgHeight_Flag'] | null_mask
                     logger.info(
                         f"building_height column '{bldg_height_col}' had {n_null} NaN value(s); "
                         "filled from eqBuildingType.csv HeightDefault (joined on eq_building_type)."
@@ -181,7 +183,7 @@ class ttfAALAnalysis:
                     logger.info("lmh_rise not found in input data; using LMH_Rise from eqBuildingType.csv (joined on eq_building_type).")
                 else:
                     null_mask = gdf[lmh_rise_col].isna()
-                    gdf.loc[null_mask, lmh_rise_col] = gdf.loc[null_mask, eq_bldg_type_col].map(rise_map)
+                    gdf[lmh_rise_col] = gdf[lmh_rise_col].fillna(gdf[eq_bldg_type_col].map(rise_map))
                     logger.info(
                         f"lmh_rise column '{lmh_rise_col}' had {n_null} NaN value(s); "
                         "filled from eqBuildingType.csv LMH_Rise (joined on eq_building_type)."
@@ -218,7 +220,7 @@ class ttfAALAnalysis:
                     logger.info("eq_building_type_class not found in input data; using BldgType from eqBuildingType.csv (joined on eq_building_type).")
                 else:
                     null_mask = gdf[eq_bldg_type_class_col].isna()
-                    gdf.loc[null_mask, eq_bldg_type_class_col] = gdf.loc[null_mask, eq_bldg_type_col].map(class_map)
+                    gdf[eq_bldg_type_class_col] = gdf[eq_bldg_type_class_col].fillna(gdf[eq_bldg_type_col].map(class_map))
                     logger.info(
                         f"eq_building_type_class column '{eq_bldg_type_class_col}' had {n_null} NaN value(s); "
                         "filled from eqBuildingType.csv BldgType (joined on eq_building_type)."
@@ -258,7 +260,7 @@ class ttfAALAnalysis:
                     )
                 else:
                     null_mask = gdf[area_col].isna()
-                    gdf.loc[null_mask, area_col] = gdf.loc[null_mask, occ_col].map(area_map)
+                    gdf[area_col] = gdf[area_col].fillna(gdf[occ_col].map(area_map))
                     logger.info(
                         f"area column '{area_col}' had {n_null} NaN value(s); "
                         "filled from eqBuildingArea.csv SquareFootage (joined on occupancy_type)."
