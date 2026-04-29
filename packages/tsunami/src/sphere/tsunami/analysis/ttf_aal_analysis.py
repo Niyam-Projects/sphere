@@ -528,7 +528,7 @@ class ttfAALAnalysis:
         ).mul(merged_df[self.buildings.fields.get_field_name('content_cost')].values, axis=0)
 
         # NewInventoryLoss = fill_ratio * (Area * GrossSales * BusinessInv%) * (CmpNsaRepair + CmpNsdRepair) / 100
-        new_inv_base = merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'] * merged_df['BusinessInv'] / 100
+        new_inv_base = merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'].fillna(0) * merged_df['BusinessInv'].fillna(0) / 100
         merged_df[self.buildings.fields.get_field_name('new_inventory_loss')] = pd.DataFrame(
             fill_ratio.mul(cmp_nonstr_repair.values, axis=0).values / 100.0,
             dtype=float

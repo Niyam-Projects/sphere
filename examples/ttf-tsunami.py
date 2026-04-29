@@ -68,6 +68,8 @@ def _():
         ],
         "INVENTORY": [
             "EqBldgType",
+            "EqBldgTypeClass",
+            "LMN_Rise"
             "EqDesignLe",
             "SOccupID",
             "Occupancy_Type",
@@ -76,11 +78,13 @@ def _():
             "ValCont",
             "AreaSqft",
             "CBFips",
+            "SiteElevation_UserDefined_ft",
+            "BldgHeight_ft",
+            "DefaultBldgHeight_Flag",
             "geometry",
             "Longitude",
             "Latitude",
             "Point",
-            "DefaultBldgHeight_Flag",
         ],
         "HAZARD": [
             "FlowDepth_*yr_Median_ft",
