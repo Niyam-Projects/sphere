@@ -513,6 +513,11 @@ class ttfAALAnalysis:
             merged_df[bldg_height_field].values, axis=0
         ).clip(0, 1)
 
+        # Where structural damage > 70%, override fill_ratio to 1.0 (same mask applied to non-"new" losses above)
+        dis_col_list = dis_cols if isinstance(dis_cols, list) else [dis_cols]
+        for str_com_col, dis_col in zip(str_com_cols, dis_col_list):
+            fill_ratio.loc[merged_df[str_com_col] > 0.7, dis_col] = 1.0
+
         cmp_nonstr_repair = merged_df['CmpNsaRepair'] + merged_df['CmpNsdRepair']
 
         # NewNonStructuralLoss = fill_ratio * ValStruct * (CmpNsaRepair + CmpNsdRepair) / 100
