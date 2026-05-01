@@ -554,6 +554,7 @@ class ttfAALAnalysis:
         merged_df[self.buildings.fields.get_field_name('new_total_econ_loss')] = pd.DataFrame(
             merged_df[new_bldg_loss_cols].values +
             merged_df[new_inventory_cols].values +
+            merged_df[new_content_cols].values +
             merged_df[self.buildings.fields.get_field_name('relocation_loss')].values +
             merged_df[self.buildings.fields.get_field_name('income_loss')].values +
             merged_df[self.buildings.fields.get_field_name('rental_loss')].values +
