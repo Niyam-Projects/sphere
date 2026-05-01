@@ -7,7 +7,7 @@
 | ID | Unique National Structure Inventory ID, Milliman and other unique IDs may be used |
 | EqBldgType | Earthquake-specific building type classification ID |
 | EdgBldgTypeClass | Hazus earthquake building type classification (i.e., W1, W2, S1L) |
-| LMN_Rise | Indicates building is classified as Low (<4 stories), Mid (4-7 stories), or High (>7 stories) |
+| LMH_Rise | Indicates building is classified as Low (<4 stories), Mid (4-7 stories), or High (>7 stories) |
 | EqDesignLe | Earthquake design level classification ID |
 | SOccupID | Hazus specific occupancy type ID |
 | Occupancy_Type | Hazus occupancy classification (i.e., RES1, COM1, IND2) |

@@ -69,7 +69,7 @@ def _():
         "INVENTORY": [
             "EqBldgType",
             "EqBldgTypeClass",
-            "LMN_Rise"
+            "LMH_Rise"
             "EqDesignLe",
             "SOccupID",
             "Occupancy_Type",

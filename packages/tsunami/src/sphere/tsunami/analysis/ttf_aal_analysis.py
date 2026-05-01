@@ -532,21 +532,20 @@ class ttfAALAnalysis:
             dtype=float
         ).mul(merged_df[self.buildings.fields.get_field_name('content_cost')].values, axis=0)
 
-        # NewInventoryLoss = fill_ratio * (Area * GrossSales * BusinessInv%) * (CmpNsaRepair + CmpNsdRepair) / 100
+        # NewInventoryLoss = fill_ratio * (Area * GrossSales * BusinessInv%) * (0.5) / 100
         new_inv_base = merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'].fillna(0) * merged_df['BusinessInv'].fillna(0) / 100
         merged_df[self.buildings.fields.get_field_name('new_inventory_loss')] = pd.DataFrame(
-            fill_ratio.mul(cmp_nonstr_repair.values, axis=0).values / 100.0,
+            fill_ratio.mul(0.5, axis=0).values / 100.0,
             dtype=float
         ).mul(new_inv_base.values, axis=0)
 
-        # NewTotalLoss = NewNonStructuralLoss + NewContentLoss + NewInventoryLoss
+        # NewTotalLoss = NewNonStructuralLoss + NewContentLoss
         new_nonstruct_cols = self.buildings.fields.get_field_name('new_nonstruct_loss')
         new_content_cols = self.buildings.fields.get_field_name('new_content_loss')
         new_inventory_cols = self.buildings.fields.get_field_name('new_inventory_loss')
         merged_df[self.buildings.fields.get_field_name('new_total_loss')] = pd.DataFrame(
             merged_df[new_nonstruct_cols].values +
-            merged_df[new_content_cols].values +
-            merged_df[new_inventory_cols].values,
+            merged_df[new_content_cols].values,
             dtype=float
         )
 
