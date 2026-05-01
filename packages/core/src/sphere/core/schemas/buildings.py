@@ -641,6 +641,7 @@ class ttfBuildings:
             "NewCapitalLoss_AAL": "NewCapitalLoss_AAL",
             "NewTotalEconomicLoss_AAL": "NewTotalEconomicLoss_AAL",
             "gross_New_content_loss_aal": "gross_New_content_loss_aal",
+            "LMH_Rise": "LMH_Rise",
         }
 
         # Grab all fields from gdf columns that start with "MomFlux" or "FlowDepth"

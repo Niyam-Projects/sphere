@@ -533,7 +533,7 @@ class ttfAALAnalysis:
         ).mul(merged_df[self.buildings.fields.get_field_name('content_cost')].values, axis=0)
 
         # NewInventoryLoss = fill_ratio * (Area * GrossSales * BusinessInv%) * (0.5) / 100
-        new_inv_base = merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'].fillna(0) * merged_df['BusinessInv'].fillna(0) / 100
+        new_inv_base = merged_df[self.buildings.fields.get_field_name('area')] * merged_df['GrossSales'].fillna(0) * merged_df['BusinessInv'].fillna(0)
         merged_df[self.buildings.fields.get_field_name('new_inventory_loss')] = pd.DataFrame(
             fill_ratio.mul(0.5, axis=0).values / 100.0,
             dtype=float
@@ -545,14 +545,15 @@ class ttfAALAnalysis:
         new_inventory_cols = self.buildings.fields.get_field_name('new_inventory_loss')
         merged_df[self.buildings.fields.get_field_name('new_total_loss')] = pd.DataFrame(
             merged_df[new_nonstruct_cols].values +
-            merged_df[new_content_cols].values,
+            merged_df[structloss_fields].values,
             dtype=float
         )
 
-        # NewTotalEconomicLoss = New_building_loss + relocation + income + rental + wage
+        # NewTotalEconomicLoss = New_building_loss + New_inventory_loss + relocation + income + rental + wage
         new_bldg_loss_cols = self.buildings.fields.get_field_name('new_total_loss')
         merged_df[self.buildings.fields.get_field_name('new_total_econ_loss')] = pd.DataFrame(
             merged_df[new_bldg_loss_cols].values +
+            merged_df[new_inventory_cols].values +
             merged_df[self.buildings.fields.get_field_name('relocation_loss')].values +
             merged_df[self.buildings.fields.get_field_name('income_loss')].values +
             merged_df[self.buildings.fields.get_field_name('rental_loss')].values +
