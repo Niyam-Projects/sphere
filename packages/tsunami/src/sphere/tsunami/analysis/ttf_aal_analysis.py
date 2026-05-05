@@ -563,23 +563,41 @@ class ttfAALAnalysis:
         )
 
         def calc_aal(losses_df):
+            _df = losses_df.fillna(0.0)
             rp_cols = []
-            for col in losses_df.columns.values:
+            for col in _df.columns.values:
                 match = re.search(r"(\d+)(y)", col)
                 if match:
                     rp_cols.append((int(match.group(1)), col))
             # ascending RP order required for correct trapezoidal integration
             rp_cols.sort()
             return_periods = [rp for rp, _ in rp_cols]
-            losses_sorted = losses_df[[col for _, col in rp_cols]]
+            losses_sorted = _df[[col for _, col in rp_cols]]
 
-            sum_ann_loss = pd.DataFrame(0.0, index=losses_df.index, columns=return_periods, dtype=float)
+            sum_ann_loss = pd.DataFrame(0.0, index=_df.index, columns=return_periods, dtype=float)
             for i, p in enumerate(return_periods):
                 if i == len(return_periods) - 1:
                     sum_ann_loss[p] = (1 / p) * losses_sorted.iloc[:, i]
                 else:
                     next_p = return_periods[i + 1]
                     sum_ann_loss[p] = ((1 / p) - (1 / next_p)) * (losses_sorted.iloc[:, i] + losses_sorted.iloc[:, i + 1]) / 2
+            # Debug: export annualized loss contribution per return period (summed across all buildings)
+            # Useful for comparing trapezoidal integration against manual spreadsheet calculations.
+            # Uncomment and set output_path to inspect.
+            # output_path = r"outputs\debug_aal_by_rp.csv"
+            # debug_df = pd.DataFrame({
+            #     "return_period": return_periods,
+            #     "annualized_probability": [1 / p for p in return_periods],
+            #     "differential_probability": [
+            #         (1 / p) if i == len(return_periods) - 1
+            #         else (1 / p) - (1 / return_periods[i + 1])
+            #         for i, p in enumerate(return_periods)
+            #     ],
+            #     "scenario_loss_total": [losses_sorted.iloc[:, i].sum() for i in range(len(return_periods))],
+            #     "annualized_loss_total": [sum_ann_loss[p].sum() for p in return_periods],
+            # })
+            # debug_df["cumulative_aal"] = debug_df["annualized_loss_total"].cumsum()
+            # debug_df.to_csv(output_path, index=False)
             return sum_ann_loss.sum(axis=1)
         
         def adjust_loss_dedlim(losses_df, ded=0, lim=1000000000):

@@ -1,4 +1,5 @@
 import logging
+import re
 import pytest
 import pandas as pd
 import geopandas as gpd
@@ -433,3 +434,153 @@ def test_ttf_aal_no_warning_monotonic_flux_values(caplog):
         for record in caplog.records
         if record.levelno == logging.WARNING
     ), "Unexpected warning about non-monotonic flux values for valid monotonic data."
+
+
+# ---------------------------------------------------------------------------
+# calc_aal: all return-period detection tests
+# ---------------------------------------------------------------------------
+
+def _make_aal_buildings():
+    """ttfBuildings with 3 return periods (100yr, 250yr, 500yr) for AAL tests."""
+    gdf = gpd.GeoDataFrame(
+        {
+            # one residential, one commercial so all loss categories are non-zero
+            'SOccupID':              ['RES1', 'COM4'],
+            'AreaSqft':              [1500.0, 2000.0],
+            'ValStruct':             [200_000.0, 500_000.0],
+            'ValCont':               [50_000.0, 125_000.0],
+            'FirstFloor':            [1.0, 2.0],
+            'EqBldgType':            [1, 1],
+            'building_height':       [12.0, 14.0],
+            'MomFlux_100yr_Median':  [5.0,  8.0],
+            'MomFlux_250yr_Median':  [10.0, 15.0],
+            'MomFlux_500yr_Median':  [15.0, 22.0],
+            'FlowDepth_100yr_Median':[2.0,  3.0],
+            'FlowDepth_250yr_Median':[4.0,  6.0],
+            'FlowDepth_500yr_Median':[6.0,  9.0],
+            # Inject inventory params so they survive both economic CSV merges.
+            # Suffix rules ('', '_econCap'/'_econInc') mean the GDF column wins as the
+            # un-suffixed name; the joined CSV value lands in the suffixed column and is
+            # never referenced by the loss calc.  In production a user GDF with matching
+            # column names would silently override CSV values the same way — a footgun to
+            # document, but intentional here.
+            'GrossSales':            [0.0, 200.0],   # $/sqft/yr; 0 for residential
+            'BusinessInv':           [0.0,  15.0],   # % of gross sales held as inventory
+            'ModInvDmg':             [0.0,   2.0],   # % inventory damaged at moderate DS
+            'ExtInvDmg':             [0.0,  10.0],   # % at extensive DS
+            'CmpInvDmg':             [0.0,  50.0],   # % at complete DS
+        },
+        geometry=gpd.points_from_xy([-122.0, -122.1], [47.0, 47.1]),
+        crs='EPSG:4326',
+    )
+    return ttfBuildings(gdf=gdf)
+
+
+def _inject_damage_probs(buildings_obj):
+    """
+    Drop-in replacement for compute_damage_states.
+    Injects deterministic probabilities (all str_complete < 0.7) directly into
+    buildings_obj.gdf so calculate_losses can proceed without fragility curves.
+    Values increase with return period so per-RP losses differ (non-vacuous test).
+    """
+    # (str_comp, str_ext, str_mod, str_none,
+    #  nsd_comp, nsd_ext, nsd_mod, nsd_none,
+    #  cont_comp, cont_ext, cont_mod, cont_none)
+    by_rp = {
+        '100y': (0.10, 0.20, 0.30, 0.40,  0.10, 0.20, 0.30, 0.40,  0.10, 0.20, 0.30, 0.40),
+        '250y': (0.20, 0.25, 0.30, 0.25,  0.20, 0.25, 0.30, 0.25,  0.20, 0.25, 0.30, 0.25),
+        '500y': (0.40, 0.25, 0.20, 0.15,  0.40, 0.25, 0.20, 0.15,  0.40, 0.25, 0.20, 0.15),
+    }
+    for rp, vals in by_rp.items():
+        sc, se, sm, sn, nc, ne, nm, nn, cc, ce, cm, cn = vals
+        buildings_obj.gdf[f'p_str_comp_{rp}']  = sc
+        buildings_obj.gdf[f'p_str_ext_{rp}']   = se
+        buildings_obj.gdf[f'p_str_mod_{rp}']   = sm
+        buildings_obj.gdf[f'p_str_none_{rp}']  = sn
+        buildings_obj.gdf[f'p_nsd_comp_{rp}']  = nc
+        buildings_obj.gdf[f'p_nsd_ext_{rp}']   = ne
+        buildings_obj.gdf[f'p_nsd_mod_{rp}']   = nm
+        buildings_obj.gdf[f'p_nsd_none_{rp}']  = nn
+        buildings_obj.gdf[f'p_cont_comp_{rp}'] = cc
+        buildings_obj.gdf[f'p_cont_ext_{rp}']  = ce
+        buildings_obj.gdf[f'p_cont_mod_{rp}']  = cm
+        buildings_obj.gdf[f'p_cont_none_{rp}'] = cn
+
+
+def _expected_aal(result_df, loss_cols):
+    """
+    Reference trapezoidal AAL matching calc_aal's formula exactly.
+    Sorts columns by ascending return period before integrating.
+    """
+    pairs = sorted(
+        [
+            (int(re.search(r'(\d+)y', c).group(1)), result_df[c].to_numpy(dtype=float))
+            for c in loss_cols
+            if re.search(r'(\d+)y', c)
+        ],
+        key=lambda x: x[0],
+    )
+    aal = np.zeros(len(pairs[0][1]))
+    for i, (p, L) in enumerate(pairs):
+        if i == len(pairs) - 1:
+            aal += L / p
+        else:
+            next_p = pairs[i + 1][0]
+            aal += ((1 / p) - (1 / next_p)) * (L + pairs[i + 1][1]) / 2
+    return aal
+
+
+@pytest.fixture(scope='module')
+def aal_test_result():
+    """Run calculate_losses once with mocked damage states; cache for all AAL tests."""
+    buildings = _make_aal_buildings()
+    vf = DefaultTsunamiVulnerability()
+    analysis = ttfAALAnalysis(buildings=buildings, vulnerability_func=vf)
+    with patch.object(vf, 'compute_damage_states', side_effect=_inject_damage_probs):
+        result = analysis.calculate_losses()
+    return result, buildings
+
+
+@pytest.mark.parametrize("loss_field,aal_field", [
+    ("building_loss",      "building_loss_aal"),
+    ("content_loss",       "content_loss_aal"),
+    ("relocation_loss",    "relocation_loss_aal"),
+    ("income_loss",        "income_loss_aal"),
+    ("rental_loss",        "rental_loss_aal"),
+    ("wage_loss",          "wage_loss_aal"),
+    ("inventory_loss",     "inventory_loss_aal"),
+    ("new_nonstruct_loss", "new_nonstruct_loss_aal"),
+    ("new_content_loss",   "new_content_loss_aal"),
+    ("new_inventory_loss", "new_inventory_loss_aal"),
+    ("new_total_loss",     "new_total_loss_aal"),
+])
+def test_calc_aal_all_return_periods_detected(loss_field, aal_field, aal_test_result):
+    """
+    calc_aal must detect and integrate all 3 return periods for every loss category.
+    Expected AAL is the hand-rolled trapezoidal sum over the per-RP loss columns.
+    A mismatch (or all-zero losses) means a return period was silently dropped.
+    """
+    result, buildings = aal_test_result
+    loss_cols = buildings.fields.get_field_name(loss_field)
+    aal_col   = buildings.fields.get_field_name(aal_field)
+
+    assert isinstance(loss_cols, list) and len(loss_cols) == 3, (
+        f"{loss_field}: expected 3 RP columns, got {loss_cols}"
+    )
+
+    expected = _expected_aal(result, loss_cols)
+    computed = result[aal_col].to_numpy(dtype=float)
+
+    # Vacuous-test guard: at least one building must have a non-zero loss
+    assert np.any(np.isfinite(expected) & (expected != 0)), (
+        f"{loss_field} is zero for all buildings — mock probabilities or occupancy "
+        "type produced no losses; the test would pass trivially."
+    )
+
+    np.testing.assert_allclose(
+        computed, expected, rtol=1e-9,
+        err_msg=(
+            f"{aal_field}: computed AAL differs from 3-period trapezoidal expected. "
+            "Likely a return period was dropped or ordering was wrong in calc_aal."
+        ),
+    )
