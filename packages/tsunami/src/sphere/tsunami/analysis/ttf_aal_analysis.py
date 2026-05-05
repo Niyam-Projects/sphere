@@ -539,10 +539,8 @@ class ttfAALAnalysis:
             dtype=float
         ).mul(new_inv_base.values, axis=0)
 
-        # NewTotalLoss = NewNonStructuralLoss + NewContentLoss
+        # NewTotalLoss = NewNonStructuralLoss + StructuralLoss (same as before since it's already accounting for depth) - this is essentially just a reweighting of the building loss based on depth in structure
         new_nonstruct_cols = self.buildings.fields.get_field_name('new_nonstruct_loss')
-        new_content_cols = self.buildings.fields.get_field_name('new_content_loss')
-        new_inventory_cols = self.buildings.fields.get_field_name('new_inventory_loss')
         merged_df[self.buildings.fields.get_field_name('new_total_loss')] = pd.DataFrame(
             merged_df[new_nonstruct_cols].values +
             merged_df[structloss_fields].values,
@@ -550,6 +548,8 @@ class ttfAALAnalysis:
         )
 
         # NewTotalEconomicLoss = New_building_loss + New_inventory_loss + relocation + income + rental + wage
+        new_inventory_cols = self.buildings.fields.get_field_name('new_inventory_loss')
+        new_content_cols = self.buildings.fields.get_field_name('new_content_loss')
         new_bldg_loss_cols = self.buildings.fields.get_field_name('new_total_loss')
         merged_df[self.buildings.fields.get_field_name('new_total_econ_loss')] = pd.DataFrame(
             merged_df[new_bldg_loss_cols].values +
@@ -562,25 +562,25 @@ class ttfAALAnalysis:
             dtype=float
         )
 
-        # Compute Bulding Loss AAL
         def calc_aal(losses_df):
-            # Get return periods from column names using regex
-            return_periods = []
+            rp_cols = []
             for col in losses_df.columns.values:
-                # keep only the numeral
                 match = re.search(r"(\d+)(y)", col)
                 if match:
-                    return_periods.append(int(match.group(1)))
-            
-            sum_ann_loss = pd.DataFrame(0.0, index=losses_df.index, columns=[return_periods], dtype=float)
-            for p in return_periods:
-                if return_periods.index(p) == len(return_periods) - 1:
-                    sum_ann_loss[p] = ((1 / p) * losses_df.iloc[:, return_periods.index(p)])
+                    rp_cols.append((int(match.group(1)), col))
+            # ascending RP order required for correct trapezoidal integration
+            rp_cols.sort()
+            return_periods = [rp for rp, _ in rp_cols]
+            losses_sorted = losses_df[[col for _, col in rp_cols]]
+
+            sum_ann_loss = pd.DataFrame(0.0, index=losses_df.index, columns=return_periods, dtype=float)
+            for i, p in enumerate(return_periods):
+                if i == len(return_periods) - 1:
+                    sum_ann_loss[p] = (1 / p) * losses_sorted.iloc[:, i]
                 else:
-                    # print(((1 / p) - (1 / return_periods[return_periods.index(p) + 1])) * ((losses_df.iloc[:, return_periods.index(p)] + losses_df.iloc[:, return_periods.index(p) + 1]) / 2).head(1))
-                    sum_ann_loss[p] = ((1 / p) - (1 / return_periods[return_periods.index(p) + 1])) * ((losses_df.iloc[:, return_periods.index(p)] + losses_df.iloc[:, return_periods.index(p) + 1]) / 2)
-            sum_ann_loss['SumAnnLoss'] = sum_ann_loss.loc[:].sum(axis=1)
-            return sum_ann_loss['SumAnnLoss']
+                    next_p = return_periods[i + 1]
+                    sum_ann_loss[p] = ((1 / p) - (1 / next_p)) * (losses_sorted.iloc[:, i] + losses_sorted.iloc[:, i + 1]) / 2
+            return sum_ann_loss.sum(axis=1)
         
         def adjust_loss_dedlim(losses_df, ded=0, lim=1000000000):
             llosses_df = losses_df.sub(ded).clip(0, lim)
