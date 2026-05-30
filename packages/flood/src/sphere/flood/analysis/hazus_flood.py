@@ -47,6 +47,19 @@ class HazusFloodAnalysis:
             restoration_df = pd.read_csv(restoration_file)
             self.restoration = self._index_restoration_lookup(restoration_df)
 
+    def _compute_flood_depth(self, gdf: gpd.GeoDataFrame) -> "pd.Series":
+        """
+        Derive flood depth for each building from the hazard grid.
+
+        Override this method in a subclass to substitute a custom hazard source
+        (e.g., a WSE raster that requires subtracting ground elevation) while
+        keeping all downstream loss calculations unchanged.
+
+        Returns:
+            pd.Series of flood depth values aligned to gdf.index.
+        """
+        return self.depth_grid.get_value_vectorized(gdf.geometry)
+
     def calculate_losses(self):
         """
         Calculates risk for each building.
@@ -67,12 +80,21 @@ class HazusFloodAnalysis:
         gdf: gpd.GeoDataFrame = self.buildings.gdf
 
         # Apply the depth grid to the buildings
-        self.buildings.flood_depth = self.depth_grid.get_value_vectorized(gdf.geometry)
+        self.buildings.flood_depth = self._compute_flood_depth(gdf)
 
         # From the flooded depth based on other attributes determine the depth in structure.
         self.buildings.depth_in_structure = (
             self.buildings.flood_depth - self.buildings.first_floor_height
         )
+
+        # For non-basement structures, negative depth_in_structure means the water
+        # surface is below the first floor — the building is not flooded. Zero it out
+        # so no loss is computed. Basement buildings (foundation_type "B" or 4) retain
+        # negative values, which correctly represent below-grade flood depth.
+        has_basement = self.buildings.foundation_type.isin(['B', 4])
+        dis = self.buildings.depth_in_structure.copy()
+        dis[~has_basement & (dis < 0)] = 0
+        self.buildings.depth_in_structure = dis
 
         # Lookup damage function ids
         self.vulnerability_func.calculate_vulnerability()
@@ -170,8 +192,16 @@ class HazusFloodAnalysis:
         debris_lookup_df = self.debris
 
         # Map building foundation types (in-place update) based on your provided logic.
+        # Handles both numeric codes (1-7, as produced by NsiBuildings preprocessing)
+        # and letter codes (e.g. "F", "S") as stored in some NSI geopackages directly.
+        _SLAB_NUMERIC = (6, 7)
+        _SLAB_LETTER  = ('F', 'S')
+        _FOOT_LETTER  = ('I', 'P', 'W', 'B', 'C')
         gdf['FoundType'] = self.buildings.foundation_type.map(
-            lambda x: 'Slab' if x in (6, 7) else ('Footing' if 1 <= x <= 5 else None)
+            lambda x: 'Slab' if (x in _SLAB_NUMERIC or x in _SLAB_LETTER)
+                      else ('Footing' if (isinstance(x, (int, float)) and 1 <= x <= 5)
+                                         or (isinstance(x, str) and x in _FOOT_LETTER)
+                            else None)
         )
 
         # Create the lookup key in the buildings dataframe

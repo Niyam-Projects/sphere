@@ -419,3 +419,14 @@ examples/flood_losses.csv
 examples/*.zip
 examples/*.gpkg
 examples/*.parquet
+examples/tsunami_transform_function/Oahu_Output_TTF_Hazus_wArea_woccTypeHAZUS_Extended.csv
+examples/tsunami_transform_function/Output_NSI_OR_pilot_wArea_HAZUS_Extended_wOccType.csv
+examples/tsunami_transform_function/Output_NSI_WA_pilot_wArea_HAZUS_Extended_wOccType.csv
+outputs/doug_output.csv
+outputs/oahu_results.csv
+outputs/oregon.csv
+outputs/output_doug.csv
+outputs/test.csv
+outputs/washington.csv
+outputs/withchange.csv
+outputs/without.csv
