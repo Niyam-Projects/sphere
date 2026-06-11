@@ -124,6 +124,10 @@ class ttfAALAnalysis:
         col_absent = bldg_height_col not in gdf.columns
         if not col_absent:
             gdf[bldg_height_col] = gdf[bldg_height_col].replace({'': np.nan, 0: np.nan})
+            # treat numbers less than zero as NaN.
+            gdf[bldg_height_col] = gdf[bldg_height_col].mask(
+                pd.to_numeric(gdf[bldg_height_col], errors='coerce') < 0
+            )
         n_null = 0 if col_absent else int(gdf[bldg_height_col].isna().sum())
         gdf['DefaultBldgHeight_Flag'] = False
         if col_absent or n_null > 0:
@@ -302,7 +306,7 @@ class ttfAALAnalysis:
                 gdf[col] = gdf[col].fillna(float(default_val))
                 gdf[flag_col] = null_mask
                 logger.info(
-                    f"{prop_name} column '{col}' had {n_null} blank value(s); "
+                    f"{prop_name} column '{col}' had {n_null} blank/negative value(s); "
                     f"filled with default {default_val}."
                 )
             else:
