@@ -288,6 +288,8 @@ class ttfAALAnalysis:
             if not col_absent:
                 # to_numeric coerces '', whitespace-only, and non-numeric cells to NaN.
                 gdf[col] = pd.to_numeric(gdf[col], errors='coerce')
+                # treat numbers less than zero as NaN.
+                gdf[col] = gdf[col].mask(gdf[col] < 0)
             n_null = 0 if col_absent else int(gdf[col].isna().sum())
             gdf[flag_col] = False
             if col_absent:
