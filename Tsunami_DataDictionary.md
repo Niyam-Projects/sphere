@@ -19,6 +19,14 @@
 | SiteElevation_UserDefined_ft | Ground surface elevation when provided by the user |
 | BldgHeight_ft | Building height in feet |
 | DefaultBldgHeight_Flag | Indicates building height estimated using Hazus class default for Mid and High rise (yes=1) |
+| BuildingLimit | Building (structure) insurance limit / cap (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied limit and is kept (not defaulted). |
+| DefaultBldgCap_Flag | Indicates the building limit was blank/missing and filled with the user-supplied default (yes=1) |
+| ContentLimit | Contents insurance limit / cap (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied limit and is kept (not defaulted). |
+| DefaultContCap_Flag | Indicates the contents limit was blank/missing and filled with the user-supplied default (yes=1) |
+| BuildingDeductible | Building (structure) insurance deductible (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied deductible and is kept (not defaulted). |
+| DefaultBldgDeductible_Flag | Indicates the building deductible was blank/missing and filled with the user-supplied default (yes=1) |
+| ContentDeductible | Contents insurance deductible (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied deductible and is kept (not defaulted). |
+| DefaultContDeductible_Flag | Indicates the contents deductible was blank/missing and filled with the user-supplied default (yes=1) |
 | geometry | Locational geometry is required for spatial analysis. |
 | Longitude | Site longitude (x) in decimal degrees |
 | Latitude | Site latitude (y) in decimal degrees |
@@ -615,4 +623,8 @@
 | FIELD | DESCRIPTION |
 |:---|:---|
 | DefaultBldgHeight_Flag | True if building height was not provided and was defaulted from eqBuildingType.csv |
+| DefaultBldgCap_Flag | True if the building limit was blank/missing and filled with the user-supplied default (0 is kept as a user-supplied value) |
+| DefaultContCap_Flag | True if the contents limit was blank/missing and filled with the user-supplied default (0 is kept as a user-supplied value) |
+| DefaultBldgDeductible_Flag | True if the building deductible was blank/missing and filled with the user-supplied default (0 is kept as a user-supplied value) |
+| DefaultContDeductible_Flag | True if the contents deductible was blank/missing and filled with the user-supplied default (0 is kept as a user-supplied value) |
 

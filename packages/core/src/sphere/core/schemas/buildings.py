@@ -611,6 +611,10 @@ class ttfBuildings:
             "occupancy_type": ["occupancy_type", "occtype", "occupancy", "occ_type", "building_type", "soccupid", "occupancy_id"],
             "building_height": ["bldgheight_ft", "building_height", "bldg_height", "bldgheight", "height", "bldg_ht", ""],
             "lmh_rise": ["lmh_rise", "lmn_rise", "rise", "bldg_rise"],
+            "bldg_cap": ["buildinglimit", "bldg_cap", "building_cap", "bldg_limit", "building_limit"],
+            "cont_cap": ["contentlimit", "cont_cap", "content_cap", "cont_limit", "content_limit"],
+            "bldg_deductible": ["buildingdeductible", "bldg_deductible", "building_deductible", "bldg_ded"],
+            "cont_deductible": ["contentdeductible", "cont_deductible", "content_deductible", "cont_ded"],
         }
         
         # Define output fields
@@ -631,6 +635,10 @@ class ttfBuildings:
             "BldgAAL_LossRatio_USDperM": "BldgAAL_LossRatio_USDperM",
             "GrossBldgAAL_LossRatio_USDperM": "GrossBldgAAL_LossRatio_USDperM",
             "DefaultBldgHeight_Flag": "DefaultBldgHeight_Flag",
+            "DefaultBldgCap_Flag": "DefaultBldgCap_Flag",
+            "DefaultContCap_Flag": "DefaultContCap_Flag",
+            "DefaultBldgDeductible_Flag": "DefaultBldgDeductible_Flag",
+            "DefaultContDeductible_Flag": "DefaultContDeductible_Flag",
             "new_nonstruct_loss_aal": "NewNonStrLoss_aal",
             "new_content_loss_aal": "New_content_loss_aal",
             "new_inventory_loss_aal": "New_inventory_loss_aal",

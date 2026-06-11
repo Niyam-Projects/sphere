@@ -279,6 +279,45 @@ class ttfAALAnalysis:
         else:
             logger.info(f"area found in input data (column: '{area_col}'); using provided values.")
 
+        # Per-building caps / deductibles: read from input columns, fall back to the
+        # scalar defaults (self.bldg_cap etc.) where blank/missing. 0 is a real value
+        # for both caps and deductibles and is kept; only blank/missing gets the default.
+        def _fill_scalar_default(prop_name, default_val, flag_col):
+            col = buildings.fields.get_field_name(prop_name)
+            col_absent = col not in gdf.columns
+            if not col_absent:
+                # to_numeric coerces '', whitespace-only, and non-numeric cells to NaN.
+                gdf[col] = pd.to_numeric(gdf[col], errors='coerce')
+            n_null = 0 if col_absent else int(gdf[col].isna().sum())
+            gdf[flag_col] = False
+            if col_absent:
+                gdf[prop_name] = float(default_val)
+                buildings.fields.set_field_mapping(prop_name, prop_name)
+                gdf[flag_col] = True
+                logger.info(f"{prop_name} not found in input data; using default {default_val}.")
+            elif n_null > 0:
+                null_mask = gdf[col].isna()
+                gdf[col] = gdf[col].fillna(float(default_val))
+                gdf[flag_col] = null_mask
+                logger.info(
+                    f"{prop_name} column '{col}' had {n_null} blank value(s); "
+                    f"filled with default {default_val}."
+                )
+            else:
+                logger.info(f"{prop_name} found in input data (column: '{col}'); using provided values.")
+            # Guarantee no residual NaN before the column feeds adjust_loss_dedlim's sub/clip.
+            final_col = buildings.fields.get_field_name(prop_name)
+            n_still_null = int(gdf[final_col].isna().sum())
+            if n_still_null:
+                logger.warning(
+                    f"{prop_name} column '{final_col}' still has {n_still_null} NaN value(s) after default fill."
+                )
+
+        _fill_scalar_default('bldg_cap',        self.bldg_cap,        'DefaultBldgCap_Flag')
+        _fill_scalar_default('cont_cap',        self.cont_cap,        'DefaultContCap_Flag')
+        _fill_scalar_default('bldg_deductible', self.bldg_deductible, 'DefaultBldgDeductible_Flag')
+        _fill_scalar_default('cont_deductible', self.cont_deductible, 'DefaultContDeductible_Flag')
+
 
     def calculate_losses(self):
         """
@@ -601,7 +640,9 @@ class ttfAALAnalysis:
             return sum_ann_loss.sum(axis=1)
         
         def adjust_loss_dedlim(losses_df, ded=0, lim=1000000000):
-            llosses_df = losses_df.sub(ded).clip(0, lim)
+            # ded / lim may be scalars or per-building Series aligned to losses_df.index.
+            # axis=0 subtracts / clips row-wise across all return-period columns.
+            llosses_df = losses_df.sub(ded, axis=0).clip(lower=0, upper=lim, axis=0)
             return llosses_df
         
         if len(flux_fields) == 1:
@@ -633,18 +674,25 @@ class ttfAALAnalysis:
         # Compute Inventory Loss AAL
         merged_df[self.buildings.fields.get_field_name('inventory_loss_aal')] = calc_aal(merged_df[self.buildings.fields.get_field_name('inventory_loss')])
 
+        # Per-building deductible / cap columns (filled with user-provided scalar defaults
+        # in __init__ where blank). These survive the how='left' merge into merged_df.
+        bldg_cap_col = self.buildings.fields.get_field_name('bldg_cap')
+        cont_cap_col = self.buildings.fields.get_field_name('cont_cap')
+        bldg_ded_col = self.buildings.fields.get_field_name('bldg_deductible')
+        cont_ded_col = self.buildings.fields.get_field_name('cont_deductible')
+
         # Compute Gross Building Losses
         merged_df[self.buildings.fields.get_field_name('gross_building_loss')] = adjust_loss_dedlim(
             merged_df[self.buildings.fields.get_field_name('building_loss')],
-            self.bldg_deductible,
-            self.bldg_cap,
+            merged_df[bldg_ded_col],
+            merged_df[bldg_cap_col],
         )
-        
+
         # Compute Gross Content Losses
         merged_df[self.buildings.fields.get_field_name('gross_content_loss')] = adjust_loss_dedlim(
             merged_df[self.buildings.fields.get_field_name('content_loss')],
-            self.cont_deductible,
-            self.cont_cap,
+            merged_df[cont_ded_col],
+            merged_df[cont_cap_col],
         )
         
         # Compute Building Loss AAL with deductible
@@ -675,15 +723,15 @@ class ttfAALAnalysis:
         # Compute Gross New Total Loss (deductible/cap applied to combined new total)
         merged_df[self.buildings.fields.get_field_name('gross_new_total_loss')] = adjust_loss_dedlim(
             merged_df[self.buildings.fields.get_field_name('new_total_loss')],
-            self.bldg_deductible,
-            self.bldg_cap,
+            merged_df[bldg_ded_col],
+            merged_df[bldg_cap_col],
         )
 
         # Compute Gross New Content Loss (deductible/cap applied to new content loss)
         merged_df[self.buildings.fields.get_field_name('gross_New_content_loss')] = adjust_loss_dedlim(
             merged_df[self.buildings.fields.get_field_name('new_content_loss')],
-            self.cont_deductible,
-            self.cont_cap,
+            merged_df[cont_ded_col],
+            merged_df[cont_cap_col],
         )
 
         # Compute New Loss AALs
