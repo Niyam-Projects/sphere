@@ -117,6 +117,13 @@ class ttfAALAnalysis:
         ):
             self._bldg_area_defaults = pd.read_csv(bldg_area_file)
 
+        with (
+            resources.files("sphere.data")
+            .joinpath("hzOccupancyClass.csv")
+            .open("r", encoding="utf-8-sig") as occ_class_file
+        ):
+            self._occupancy_defaults = pd.read_csv(occ_class_file)
+
         gdf = buildings.gdf
 
         # Check for building_height; fill missing/NaN values from eqBuildingType.csv (HeightDefault)
@@ -242,6 +249,64 @@ class ttfAALAnalysis:
                 )
         else:
             logger.info(f"eq_building_type_class found in input data (column: '{eq_bldg_type_class_col}'); using provided values.")
+
+        # Check for occupancy_type; derive from SOccupID (hzOccupancyClass.csv) if absent/null
+        occ_col = buildings.fields.get_field_name('occupancy_type')
+        col_absent = occ_col not in gdf.columns
+        if not col_absent:
+            gdf[occ_col] = gdf[occ_col].astype(str).str.strip().replace({'': np.nan, 'nan': np.nan})
+        n_null = 0 if col_absent else int(gdf[occ_col].isna().sum())
+
+        if not col_absent and n_null == 0:
+            logger.info(f"Occupancy_Type found in input data (column: '{occ_col}'); using provided values.")
+        else:
+            soccup_col = buildings.fields.get_field_name('soccup_id')
+            if not soccup_col or soccup_col not in gdf.columns:
+                # Defensive: ttfBuildings already raises when both columns are absent.
+                raise ValueError(
+                    "Occupancy_Type not found and SOccupID column is also absent; cannot run analysis."
+                )
+            soccup_numeric = pd.to_numeric(gdf[soccup_col].astype(str).str.strip(), errors='coerce')
+            occ_map = (
+                self._occupancy_defaults
+                .assign(Occupancy_Type=lambda d: d['Occupancy_Type'].astype(str).str.strip())
+                .set_index('SOccupID')['Occupancy_Type']
+            )
+            derived = soccup_numeric.map(occ_map)
+            if col_absent:
+                gdf['occupancy_type'] = derived
+                buildings.fields.set_field_mapping('occupancy_type', 'occupancy_type')
+                occ_col = 'occupancy_type'
+                logger.warning(
+                    "Occupancy_Type not found in input data; deriving from SOccupID using "
+                    "hzOccupancyClass.csv (joined on SOccupID)."
+                )
+            else:
+                gdf[occ_col] = gdf[occ_col].fillna(derived)
+                logger.warning(
+                    f"Occupancy_Type column '{occ_col}' had {n_null} missing value(s); "
+                    "derived from SOccupID using hzOccupancyClass.csv (joined on SOccupID)."
+                )
+            n_still_null = int(gdf[occ_col].isna().sum())
+            if n_still_null:
+                logger.warning(
+                    f"{n_still_null} building(s) still have no Occupancy_Type after mapping "
+                    "(no matching SOccupID in hzOccupancyClass.csv)."
+                )
+
+        # Flag Occupancy_Type values (provided or derived) that won't join to the economic
+        # parameters (e.g. typos); these buildings get no economic losses from the left merge.
+        valid_occ = set(self.econ_cap_params['Occupancy'].astype(str).str.strip())
+        occ_vals = gdf[occ_col].astype(str).str.strip()
+        unknown_mask = gdf[occ_col].notna() & ~occ_vals.isin(valid_occ)
+        n_unknown = int(unknown_mask.sum())
+        if n_unknown:
+            bad_codes = sorted(occ_vals[unknown_mask].unique())
+            logger.warning(
+                f"{n_unknown} building(s) have Occupancy_Type value(s) not found in the economic "
+                f"parameters (eqEconCapParams.csv); these buildings will receive no economic "
+                f"losses. Unrecognized value(s): {bad_codes}."
+            )
 
         # Check for area; fill missing/NaN values from eqBuildingArea.csv (SquareFootage)
         area_col = buildings.fields.get_field_name('area')

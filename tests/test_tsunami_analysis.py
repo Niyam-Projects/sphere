@@ -362,7 +362,7 @@ def test_ttf_aal_warns_non_monotonic_flux_values(caplog):
     # MomFlux_100yr values are HIGHER than MomFlux_250yr — non-monotonic data
     gdf = gpd.GeoDataFrame(
         {
-            'SOccupID': ['RES1'] * n,
+            'Occupancy_Type': ['RES1'] * n,
             'AreaSqft': [1500.0] * n,
             'ValStruct': [200_000.0] * n,
             'ValCont': [50_000.0] * n,
@@ -403,7 +403,7 @@ def test_ttf_aal_no_warning_monotonic_flux_values(caplog):
     # MomFlux_250yr > MomFlux_100yr — correct monotonic order
     gdf = gpd.GeoDataFrame(
         {
-            'SOccupID': ['RES1'] * n,
+            'Occupancy_Type': ['RES1'] * n,
             'AreaSqft': [1500.0] * n,
             'ValStruct': [200_000.0] * n,
             'ValCont': [50_000.0] * n,
@@ -445,7 +445,7 @@ def _make_aal_buildings():
     gdf = gpd.GeoDataFrame(
         {
             # one residential, one commercial so all loss categories are non-zero
-            'SOccupID':              ['RES1', 'COM4'],
+            'Occupancy_Type':        ['RES1', 'COM4'],
             'AreaSqft':              [1500.0, 2000.0],
             'ValStruct':             [200_000.0, 500_000.0],
             'ValCont':               [50_000.0, 125_000.0],
@@ -584,3 +584,69 @@ def test_calc_aal_all_return_periods_detected(loss_field, aal_field, aal_test_re
             "Likely a return period was dropped or ordering was wrong in calc_aal."
         ),
     )
+
+
+def _minimal_ttf_gdf(with_occ=False, with_soccup=True):
+    """Minimal gdf accepted by ttfBuildings / ttfAALAnalysis.__init__."""
+    data = {
+        'NsiID': [1, 2],
+        'ValStruct': [100000.0, 200000.0],
+        'ValCont': [50000.0, 100000.0],
+        'FirstFloor': [1.0, 1.0],
+        'EqBldgType': [1, 2],
+        'MomFlux_100yr_Median_ft3_per_sec2': [10.0, 20.0],
+        'FlowDepth_100yr_Median_ft': [3.0, 4.0],
+        'Longitude': [-122.0, -122.1],
+        'Latitude': [45.0, 45.1],
+    }
+    if with_soccup:
+        data['SOccupID'] = [1, 3]      # -> RES1, RES3A in hzOccupancyClass.csv
+    if with_occ:
+        data['Occupancy_Type'] = ['RES1', 'RES3A']
+    df = pd.DataFrame(data)
+    geometry = [Point(xy) for xy in zip(df['Longitude'], df['Latitude'])]
+    return gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
+
+
+def test_occupancy_type_derived_from_soccupid(caplog):
+    """Occupancy_Type absent but SOccupID present -> derived via hzOccupancyClass.csv, warned."""
+    gdf = _minimal_ttf_gdf(with_occ=False, with_soccup=True)
+    buildings = ttfBuildings(gdf=gdf)
+    with caplog.at_level(logging.WARNING):
+        ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    occ_col = buildings.fields.get_field_name('occupancy_type')
+    assert buildings.gdf[occ_col].tolist() == ['RES1', 'RES3A']
+    assert any('deriving from SOccupID' in r.message.lower() or
+               'derived from soccupid' in r.message.lower() or
+               'SOccupID' in r.message for r in caplog.records)
+
+
+def test_occupancy_type_partial_fill_from_soccupid():
+    """Occupancy_Type present with a blank row -> that row backfilled from SOccupID."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=True)
+    gdf.loc[1, 'Occupancy_Type'] = ''   # blank second row
+    buildings = ttfBuildings(gdf=gdf)
+    ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    occ_col = buildings.fields.get_field_name('occupancy_type')
+    assert buildings.gdf[occ_col].tolist() == ['RES1', 'RES3A']
+
+
+def test_missing_occupancy_and_soccupid_raises():
+    """Neither Occupancy_Type nor SOccupID -> cannot run analysis."""
+    gdf = _minimal_ttf_gdf(with_occ=False, with_soccup=False)
+    with pytest.raises(ValueError):
+        ttfBuildings(gdf=gdf)
+
+
+def test_unrecognized_occupancy_type_warns(caplog):
+    """A typo'd Occupancy_Type that won't join the economic params is warned about."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False)
+    gdf.loc[1, 'Occupancy_Type'] = 'RES1X'   # typo -> not in eqEconCapParams.csv
+    buildings = ttfBuildings(gdf=gdf)
+    with caplog.at_level(logging.WARNING):
+        ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    assert any('RES1X' in r.message and 'not found in the economic parameters' in r.message
+               for r in caplog.records)
