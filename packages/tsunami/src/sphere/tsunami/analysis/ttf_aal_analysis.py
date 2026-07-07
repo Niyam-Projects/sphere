@@ -126,173 +126,138 @@ class ttfAALAnalysis:
 
         gdf = buildings.gdf
 
-        # Check for building_height; fill missing/NaN values from eqBuildingType.csv (HeightDefault)
-        bldg_height_col = buildings.fields.get_field_name('building_height')
-        col_absent = bldg_height_col not in gdf.columns
-        if not col_absent:
-            gdf[bldg_height_col] = gdf[bldg_height_col].replace({'': np.nan, 0: np.nan})
-            # treat numbers less than zero as NaN.
-            gdf[bldg_height_col] = gdf[bldg_height_col].mask(
-                pd.to_numeric(gdf[bldg_height_col], errors='coerce') < 0
-            )
-        n_null = 0 if col_absent else int(gdf[bldg_height_col].isna().sum())
-        gdf['DefaultBldgHeight_Flag'] = False
-        if col_absent or n_null > 0:
-            eq_bldg_type_col = buildings.fields.get_field_name('eq_building_type')
-            if eq_bldg_type_col and eq_bldg_type_col in gdf.columns:
-                gdf[eq_bldg_type_col] = pd.to_numeric(gdf[eq_bldg_type_col].astype(str).str.strip(), errors='coerce')
-                height_map = self._bldg_type_defaults.set_index('ID')['HeightDefault']
-                ffh_field = buildings.fields.get_field_name('first_floor_height')
-                if col_absent:
-                    gdf['building_height'] = gdf[eq_bldg_type_col].map(height_map) + gdf[ffh_field]
-                    buildings.fields.set_field_mapping('building_height', 'building_height')
-                    bldg_height_col = 'building_height'
-                    gdf['DefaultBldgHeight_Flag'] = True
-                    logger.info(
-                        "building_height not found in input data; using HeightDefault + first_floor_height from eqBuildingType.csv "
-                        f"(joined on eq_building_type)."
-                    )
-                else:
-                    null_mask = gdf[bldg_height_col].isna()
-                    gdf[bldg_height_col] = gdf[bldg_height_col].fillna(
-                        gdf[eq_bldg_type_col].map(height_map) + gdf[ffh_field]
-                    )
-                    gdf['DefaultBldgHeight_Flag'] = gdf['DefaultBldgHeight_Flag'] | null_mask
-                    logger.info(
-                        f"building_height column '{bldg_height_col}' had {n_null} NaN value(s); "
-                        "filled from eqBuildingType.csv HeightDefault (joined on eq_building_type)."
-                    )
-                n_still_null = int(gdf[bldg_height_col].isna().sum())
-                if n_still_null:
-                    logger.warning(
-                        f"{n_still_null} building(s) still have NaN building_height after applying defaults "
-                        "(no matching BldgType in eqBuildingType.csv)."
-                    )
-            else:
-                logger.warning(
-                    "building_height not found/has NaN values and eq_building_type column is also absent; "
-                    "cannot fill defaults from eqBuildingType.csv."
-                )
-        else:
-            logger.info(f"building_height found in input data (column: '{bldg_height_col}'); using provided values.")
+        # Generic "fill target field from a reference-table lookup keyed on another field,
+        # if target is absent/blank" — shared by every defaulting block below. Guard clauses
+        # keep nesting flat: bail early once the column is fine, once the key is unusable, then
+        # a single flat if/else for the two ways a value can be written (new column vs fillna).
+        def _fill_from_lookup(
+            target_field, key_field, lookup: pd.Series, *,
+            value_label, csv_name,
+            target_label=None, key_label=None,
+            key_numeric=True, target_is_text=False,
+            treat_zero_as_missing=False, treat_negative_as_missing=False,
+            extra_field=None, flag_col=None,
+            log_level=logging.INFO, raise_if_key_missing=False,
+        ):
+            target_label = target_label or target_field
+            key_label = key_label or key_field
 
-        # Check for lmh_rise; fill from eqBuildingType.csv (LMH_Rise) if absent/null
-        lmh_rise_col = buildings.fields.get_field_name('lmh_rise')
-        col_absent = lmh_rise_col not in gdf.columns
-        if not col_absent:
-            gdf[lmh_rise_col] = gdf[lmh_rise_col].replace({'': np.nan})
-        n_null = 0 if col_absent else int(gdf[lmh_rise_col].isna().sum())
-        if col_absent or n_null > 0:
-            eq_bldg_type_col = buildings.fields.get_field_name('eq_building_type')
-            if eq_bldg_type_col and eq_bldg_type_col in gdf.columns:
-                gdf[eq_bldg_type_col] = pd.to_numeric(gdf[eq_bldg_type_col].astype(str).str.strip(), errors='coerce')
-                rise_map = self._bldg_type_defaults.set_index('ID')['LMH_Rise']
-                if col_absent:
-                    gdf['lmh_rise'] = gdf[eq_bldg_type_col].map(rise_map)
-                    buildings.fields.set_field_mapping('lmh_rise', 'lmh_rise')
-                    lmh_rise_col = 'lmh_rise'
-                    logger.info("lmh_rise not found in input data; using LMH_Rise from eqBuildingType.csv (joined on eq_building_type).")
-                else:
-                    null_mask = gdf[lmh_rise_col].isna()
-                    gdf[lmh_rise_col] = gdf[lmh_rise_col].fillna(gdf[eq_bldg_type_col].map(rise_map))
-                    logger.info(
-                        f"lmh_rise column '{lmh_rise_col}' had {n_null} NaN value(s); "
-                        "filled from eqBuildingType.csv LMH_Rise (joined on eq_building_type)."
-                    )
-                n_still_null = int(gdf[lmh_rise_col].isna().sum())
-                if n_still_null:
-                    logger.warning(
-                        f"{n_still_null} building(s) still have NaN lmh_rise after applying defaults "
-                        "(no matching ID in eqBuildingType.csv)."
-                    )
-            else:
-                logger.warning(
-                    "lmh_rise not found/has NaN values and eq_building_type column is also absent; "
-                    "cannot fill defaults from eqBuildingType.csv."
-                )
-        else:
-            logger.info(f"lmh_rise found in input data (column: '{lmh_rise_col}'); using provided values.")
-
-        # Check for eq_building_type_class; populate from eqBuildingType.csv (BldgType) if absent/null
-        eq_bldg_type_class_col = buildings.fields.get_field_name('eq_building_type_class')
-        col_absent = eq_bldg_type_class_col not in gdf.columns
-        if not col_absent:
-            gdf[eq_bldg_type_class_col] = gdf[eq_bldg_type_class_col].replace({'': np.nan})
-        n_null = 0 if col_absent else int(gdf[eq_bldg_type_class_col].isna().sum())
-        if col_absent or n_null > 0:
-            eq_bldg_type_col = buildings.fields.get_field_name('eq_building_type')
-            if eq_bldg_type_col and eq_bldg_type_col in gdf.columns:
-                gdf[eq_bldg_type_col] = pd.to_numeric(gdf[eq_bldg_type_col].astype(str).str.strip(), errors='coerce')
-                class_map = self._bldg_type_defaults.set_index('ID')['BldgType']
-                if col_absent:
-                    gdf['eq_building_type_class'] = gdf[eq_bldg_type_col].map(class_map)
-                    buildings.fields.set_field_mapping('eq_building_type_class', 'eq_building_type_class')
-                    eq_bldg_type_class_col = 'eq_building_type_class'
-                    logger.info("eq_building_type_class not found in input data; using BldgType from eqBuildingType.csv (joined on eq_building_type).")
-                else:
-                    null_mask = gdf[eq_bldg_type_class_col].isna()
-                    gdf[eq_bldg_type_class_col] = gdf[eq_bldg_type_class_col].fillna(gdf[eq_bldg_type_col].map(class_map))
-                    logger.info(
-                        f"eq_building_type_class column '{eq_bldg_type_class_col}' had {n_null} NaN value(s); "
-                        "filled from eqBuildingType.csv BldgType (joined on eq_building_type)."
-                    )
-                n_still_null = int(gdf[eq_bldg_type_class_col].isna().sum())
-                if n_still_null:
-                    logger.warning(
-                        f"{n_still_null} building(s) still have NaN eq_building_type_class after applying defaults "
-                        "(no matching ID in eqBuildingType.csv)."
-                    )
-            else:
-                logger.warning(
-                    "eq_building_type_class not found/has NaN values and eq_building_type column is also absent; "
-                    "cannot fill defaults from eqBuildingType.csv."
-                )
-        else:
-            logger.info(f"eq_building_type_class found in input data (column: '{eq_bldg_type_class_col}'); using provided values.")
-
-        # Check for occupancy_type; derive from SOccupID (hzOccupancyClass.csv) if absent/null
-        occ_col = buildings.fields.get_field_name('occupancy_type')
-        col_absent = occ_col not in gdf.columns
-        if not col_absent:
-            gdf[occ_col] = gdf[occ_col].astype(str).str.strip().replace({'': np.nan, 'nan': np.nan})
-        n_null = 0 if col_absent else int(gdf[occ_col].isna().sum())
-
-        if not col_absent and n_null == 0:
-            logger.info(f"Occupancy_Type found in input data (column: '{occ_col}'); using provided values.")
-        else:
-            soccup_col = buildings.fields.get_field_name('soccup_id')
-            if not soccup_col or soccup_col not in gdf.columns:
-                # Defensive: ttfBuildings already raises when both columns are absent.
-                raise ValueError(
-                    "Occupancy_Type not found and SOccupID column is also absent; cannot run analysis."
-                )
-            soccup_numeric = pd.to_numeric(gdf[soccup_col].astype(str).str.strip(), errors='coerce')
-            occ_map = (
-                self._occupancy_defaults
-                .assign(Occupancy_Type=lambda d: d['Occupancy_Type'].astype(str).str.strip())
-                .set_index('SOccupID')['Occupancy_Type']
-            )
-            derived = soccup_numeric.map(occ_map)
+            target_col = buildings.fields.get_field_name(target_field)
+            col_absent = target_col not in gdf.columns
             if col_absent:
-                gdf['occupancy_type'] = derived
-                buildings.fields.set_field_mapping('occupancy_type', 'occupancy_type')
-                occ_col = 'occupancy_type'
+                pass
+            elif target_is_text:
+                gdf[target_col] = gdf[target_col].astype(str).str.strip().replace({'': np.nan, 'nan': np.nan})
+            else:
+                repl = {'': np.nan}
+                if treat_zero_as_missing:
+                    repl[0] = np.nan
+                gdf[target_col] = gdf[target_col].replace(repl)
+                if treat_negative_as_missing:
+                    gdf[target_col] = gdf[target_col].mask(pd.to_numeric(gdf[target_col], errors='coerce') < 0)
+            n_null = 0 if col_absent else int(gdf[target_col].isna().sum())
+            if flag_col:
+                gdf[flag_col] = False
+
+            if not col_absent and n_null == 0:
+                logger.info(f"{target_label} found in input data (column: '{target_col}'); using provided values.")
+                return
+
+            key_col = buildings.fields.get_field_name(key_field)
+            if not key_col or key_col not in gdf.columns:
+                if raise_if_key_missing:
+                    raise ValueError(
+                        f"{target_label} not found and {key_label} column is also absent; cannot run analysis."
+                    )
                 logger.warning(
-                    "Occupancy_Type not found in input data; deriving from SOccupID using "
-                    "hzOccupancyClass.csv (joined on SOccupID)."
+                    f"{target_label} not found/has NaN values and {key_label} column is also absent; "
+                    f"cannot fill defaults from {csv_name}."
+                )
+                return
+
+            if key_numeric:
+                gdf[key_col] = pd.to_numeric(gdf[key_col].astype(str).str.strip(), errors='coerce')
+            else:
+                gdf[key_col] = gdf[key_col].astype(str).str.strip()
+
+            mapped = gdf[key_col].map(lookup)
+            if extra_field:
+                mapped = mapped + gdf[buildings.fields.get_field_name(extra_field)]
+
+            if col_absent:
+                gdf[target_field] = mapped
+                buildings.fields.set_field_mapping(target_field, target_field)
+                target_col = target_field
+                if flag_col:
+                    gdf[flag_col] = True
+                logger.log(
+                    log_level,
+                    f"{target_label} not found in input data; using {value_label} from {csv_name} "
+                    f"(joined on {key_label})."
                 )
             else:
-                gdf[occ_col] = gdf[occ_col].fillna(derived)
-                logger.warning(
-                    f"Occupancy_Type column '{occ_col}' had {n_null} missing value(s); "
-                    "derived from SOccupID using hzOccupancyClass.csv (joined on SOccupID)."
+                null_mask = gdf[target_col].isna()
+                gdf[target_col] = gdf[target_col].fillna(mapped)
+                if flag_col:
+                    gdf[flag_col] = gdf[flag_col] | null_mask
+                logger.log(
+                    log_level,
+                    f"{target_label} column '{target_col}' had {n_null} NaN value(s); "
+                    f"filled from {csv_name} {value_label} (joined on {key_label})."
                 )
-            n_still_null = int(gdf[occ_col].isna().sum())
+
+            n_still_null = int(gdf[target_col].isna().sum())
             if n_still_null:
                 logger.warning(
-                    f"{n_still_null} building(s) still have no Occupancy_Type after mapping "
-                    "(no matching SOccupID in hzOccupancyClass.csv)."
+                    f"{n_still_null} building(s) still have no {target_label} after applying defaults "
+                    f"from {csv_name}."
                 )
+
+        # eq_building_type (ID); derive from eq_building_type_class (BldgType) if absent/null.
+        # Everything below that needs a building type — height/lmh_rise defaults, fragility
+        # curve merges in DefaultTsunamiVulnerability — keys strictly on the numeric ID, so
+        # deriving it first keeps it all working when only Class was provided.
+        _fill_from_lookup(
+            'eq_building_type', 'eq_building_type_class',
+            self._bldg_type_defaults.set_index('BldgType')['ID'],
+            value_label="ID", csv_name="eqBuildingType.csv",
+            key_numeric=False,
+        )
+
+        # building_height; fill missing/NaN values from eqBuildingType.csv (HeightDefault + first_floor_height)
+        _fill_from_lookup(
+            'building_height', 'eq_building_type',
+            self._bldg_type_defaults.set_index('ID')['HeightDefault'],
+            value_label="HeightDefault + first_floor_height", csv_name="eqBuildingType.csv",
+            treat_zero_as_missing=True, treat_negative_as_missing=True,
+            extra_field='first_floor_height', flag_col='DefaultBldgHeight_Flag',
+        )
+
+        # lmh_rise; fill from eqBuildingType.csv (LMH_Rise) if absent/null
+        _fill_from_lookup(
+            'lmh_rise', 'eq_building_type',
+            self._bldg_type_defaults.set_index('ID')['LMH_Rise'],
+            value_label="LMH_Rise", csv_name="eqBuildingType.csv",
+        )
+
+        # eq_building_type_class; populate from eqBuildingType.csv (BldgType) if absent/null
+        _fill_from_lookup(
+            'eq_building_type_class', 'eq_building_type',
+            self._bldg_type_defaults.set_index('ID')['BldgType'],
+            value_label="BldgType", csv_name="eqBuildingType.csv",
+        )
+
+        # occupancy_type; derive from SOccupID (hzOccupancyClass.csv) if absent/null
+        _fill_from_lookup(
+            'occupancy_type', 'soccup_id',
+            self._occupancy_defaults
+                .assign(Occupancy_Type=lambda d: d['Occupancy_Type'].astype(str).str.strip())
+                .set_index('SOccupID')['Occupancy_Type'],
+            value_label="Occupancy_Type", csv_name="hzOccupancyClass.csv",
+            target_label="Occupancy_Type", key_label="SOccupID",
+            target_is_text=True, log_level=logging.WARNING, raise_if_key_missing=True,
+        )
+        occ_col = buildings.fields.get_field_name('occupancy_type')
 
         # Flag Occupancy_Type values (provided or derived) that won't join to the economic
         # parameters (e.g. typos); these buildings get no economic losses from the left merge.
@@ -308,45 +273,13 @@ class ttfAALAnalysis:
                 f"losses. Unrecognized value(s): {bad_codes}."
             )
 
-        # Check for area; fill missing/NaN values from eqBuildingArea.csv (SquareFootage)
-        area_col = buildings.fields.get_field_name('area')
-        col_absent = area_col not in gdf.columns
-        if not col_absent:
-            gdf[area_col] = gdf[area_col].replace({'': np.nan, 0: np.nan})
-        n_null = 0 if col_absent else int(gdf[area_col].isna().sum())
-        if col_absent or n_null > 0:
-            occ_col = buildings.fields.get_field_name('occupancy_type')
-            if occ_col and occ_col in gdf.columns:
-                gdf[occ_col] = gdf[occ_col].astype(str).str.strip().replace('nan', np.nan)
-                area_map = self._bldg_area_defaults.set_index('Occupancy')['SquareFootage']
-                if col_absent:
-                    gdf['area'] = gdf[occ_col].map(area_map)
-                    buildings.fields.set_field_mapping('area', 'area')
-                    area_col = 'area'
-                    logger.info(
-                        "area not found in input data; using SquareFootage from eqBuildingArea.csv "
-                        "(joined on occupancy_type)."
-                    )
-                else:
-                    null_mask = gdf[area_col].isna()
-                    gdf[area_col] = gdf[area_col].fillna(gdf[occ_col].map(area_map))
-                    logger.info(
-                        f"area column '{area_col}' had {n_null} NaN value(s); "
-                        "filled from eqBuildingArea.csv SquareFootage (joined on occupancy_type)."
-                    )
-                n_still_null = int(gdf[area_col].isna().sum())
-                if n_still_null:
-                    logger.warning(
-                        f"{n_still_null} building(s) still have NaN area after applying defaults "
-                        "(no matching Occupancy in eqBuildingArea.csv)."
-                    )
-            else:
-                logger.warning(
-                    "area not found/has NaN values and occupancy_type column is also absent; "
-                    "cannot fill defaults from eqBuildingArea.csv."
-                )
-        else:
-            logger.info(f"area found in input data (column: '{area_col}'); using provided values.")
+        # area; fill missing/NaN values from eqBuildingArea.csv (SquareFootage)
+        _fill_from_lookup(
+            'area', 'occupancy_type',
+            self._bldg_area_defaults.set_index('Occupancy')['SquareFootage'],
+            value_label="SquareFootage", csv_name="eqBuildingArea.csv",
+            key_numeric=False, treat_zero_as_missing=True,
+        )
 
         # Per-building caps / deductibles: read from input columns, fall back to the
         # scalar defaults (self.bldg_cap etc.) where blank/missing. 0 is a real value

@@ -586,19 +586,27 @@ def test_calc_aal_all_return_periods_detected(loss_field, aal_field, aal_test_re
     )
 
 
-def _minimal_ttf_gdf(with_occ=False, with_soccup=True):
-    """Minimal gdf accepted by ttfBuildings / ttfAALAnalysis.__init__."""
+def _minimal_ttf_gdf(with_occ=False, with_soccup=True, with_eq_bldg_type=True, eq_bldg_type_class=None):
+    """Minimal gdf accepted by ttfBuildings / ttfAALAnalysis.__init__.
+
+    EqBldgType=1 -> BldgType 'W1' (HeightDefault 14, LMH_Rise 'L')
+    EqBldgType=2 -> BldgType 'W2' (HeightDefault 24, LMH_Rise 'L')
+    per eqBuildingType.csv.
+    """
     data = {
         'NsiID': [1, 2],
         'ValStruct': [100000.0, 200000.0],
         'ValCont': [50000.0, 100000.0],
         'FirstFloor': [1.0, 1.0],
-        'EqBldgType': [1, 2],
         'MomFlux_100yr_Median_ft3_per_sec2': [10.0, 20.0],
         'FlowDepth_100yr_Median_ft': [3.0, 4.0],
         'Longitude': [-122.0, -122.1],
         'Latitude': [45.0, 45.1],
     }
+    if with_eq_bldg_type:
+        data['EqBldgType'] = [1, 2]
+    if eq_bldg_type_class is not None:
+        data['EqBldgTypeClass'] = eq_bldg_type_class
     if with_soccup:
         data['SOccupID'] = [1, 3]      # -> RES1, RES3A in hzOccupancyClass.csv
     if with_occ:
@@ -650,3 +658,89 @@ def test_unrecognized_occupancy_type_warns(caplog):
 
     assert any('RES1X' in r.message and 'not found in the economic parameters' in r.message
                for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# eq_building_type / eq_building_type_class / building_height / lmh_rise / area
+# default-fill (backfill-from-lookup) tests. These pin current behavior before
+# the fill blocks get generalized into a shared helper.
+# ---------------------------------------------------------------------------
+
+def test_eq_building_type_derived_from_class(caplog):
+    """EqBldgType absent but EqBldgTypeClass present -> ID derived via eqBuildingType.csv (BldgType->ID)."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False, with_eq_bldg_type=False,
+                            eq_bldg_type_class=['W1', 'W2'])
+    buildings = ttfBuildings(gdf=gdf)
+    with caplog.at_level(logging.INFO):
+        ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    id_col = buildings.fields.get_field_name('eq_building_type')
+    assert buildings.gdf[id_col].tolist() == [1, 2]
+    assert any('using id from eqbuildingtype.csv' in r.message.lower() for r in caplog.records)
+
+
+def test_eq_building_type_partial_fill_from_class():
+    """EqBldgType present with a blank row -> that row backfilled from EqBldgTypeClass."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False, eq_bldg_type_class=['W1', 'W2'])
+    gdf.loc[1, 'EqBldgType'] = np.nan
+    buildings = ttfBuildings(gdf=gdf)
+    ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    id_col = buildings.fields.get_field_name('eq_building_type')
+    assert buildings.gdf[id_col].tolist() == [1.0, 2.0]
+
+
+def test_missing_eq_building_type_and_class_warns(caplog):
+    """Neither EqBldgType nor EqBldgTypeClass present -> warned, not raised."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False, with_eq_bldg_type=False)
+    buildings = ttfBuildings(gdf=gdf)
+    with caplog.at_level(logging.WARNING):
+        ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    assert any('eq_building_type_class column is also' in r.message for r in caplog.records)
+
+
+def test_eq_building_type_class_derived_from_id():
+    """EqBldgTypeClass absent but EqBldgType present -> Class derived via eqBuildingType.csv (ID->BldgType)."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False)   # EqBldgType = [1, 2]
+    buildings = ttfBuildings(gdf=gdf)
+    ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    class_col = buildings.fields.get_field_name('eq_building_type_class')
+    assert buildings.gdf[class_col].tolist() == ['W1', 'W2']
+
+
+def test_building_height_and_lmh_rise_default_from_id():
+    """building_height/lmh_rise absent -> filled via eqBuildingType.csv keyed on EqBldgType ID."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False)   # EqBldgType = [1, 2], FirstFloor = [1.0, 1.0]
+    buildings = ttfBuildings(gdf=gdf)
+    ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    height_col = buildings.fields.get_field_name('building_height')
+    lmh_col = buildings.fields.get_field_name('lmh_rise')
+    assert buildings.gdf[height_col].tolist() == [15.0, 25.0]   # HeightDefault + FirstFloor
+    assert buildings.gdf[lmh_col].tolist() == ['L', 'L']
+
+
+def test_building_height_and_lmh_rise_use_class_derived_id():
+    """When only EqBldgTypeClass is given (no EqBldgType), building_height/lmh_rise defaults still
+    resolve — proving the eq_building_type ID derived from Class cascades to downstream fill blocks."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False, with_eq_bldg_type=False,
+                            eq_bldg_type_class=['W1', 'W2'])
+    buildings = ttfBuildings(gdf=gdf)
+    ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    height_col = buildings.fields.get_field_name('building_height')
+    lmh_col = buildings.fields.get_field_name('lmh_rise')
+    assert buildings.gdf[height_col].tolist() == [15.0, 25.0]
+    assert buildings.gdf[lmh_col].tolist() == ['L', 'L']
+
+
+def test_area_derived_from_occupancy_type():
+    """AreaSqft absent -> derived via eqBuildingArea.csv (Occupancy -> SquareFootage)."""
+    gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False)   # Occupancy_Type = ['RES1', 'RES3A']
+    buildings = ttfBuildings(gdf=gdf)
+    ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
+
+    area_col = buildings.fields.get_field_name('area')
+    assert buildings.gdf[area_col].tolist() == [1800.0, 2200.0]
