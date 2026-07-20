@@ -2,34 +2,34 @@
 
 ## INVENTORY
 
-| FIELD | DESCRIPTION |
-|:---|:---|
-| ID | Unique National Structure Inventory ID, Milliman and other unique IDs may be used |
-| EqBldgType | Earthquake-specific building type classification ID |
-| EdgBldgTypeClass | Hazus earthquake building type classification (i.e., W1, W2, S1L) |
-| LMH_Rise | Indicates building is classified as Low (<4 stories), Mid (4-7 stories), or High (>7 stories) |
-| EqDesignLe | Earthquake design level classification ID |
-| SOccupID | Hazus specific occupancy type ID |
-| Occupancy_Type | Hazus occupancy classification (i.e., RES1, COM1, IND2) |
-| FirstFloor | First floor height above ground elevation (feet) |
-| ValStruct | Building structure replacement cost (USD) |
-| ValCont | Contents replacement cost (USD) |
-| AreaSqft | Building floor area (square feet) |
-| CBFips | Census Block ID |
-| SiteElevation_UserDefined_ft | Ground surface elevation when provided by the user |
-| BldgHeight_ft | Building height in feet |
-| DefaultBldgHeight_Flag | Indicates building height estimated using Hazus class default for Mid and High rise (yes=1) |
-| BuildingLimit | Building (structure) insurance limit / cap (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied limit and is kept (not defaulted). |
-| DefaultBldgCap_Flag | Indicates the building limit was blank/missing and filled with the user-supplied default (yes=1) |
-| ContentLimit | Contents insurance limit / cap (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied limit and is kept (not defaulted). |
-| DefaultContCap_Flag | Indicates the contents limit was blank/missing and filled with the user-supplied default (yes=1) |
-| BuildingDeductible | Building (structure) insurance deductible (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied deductible and is kept (not defaulted). |
-| DefaultBldgDeductible_Flag | Indicates the building deductible was blank/missing and filled with the user-supplied default (yes=1) |
-| ContentDeductible | Contents insurance deductible (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied deductible and is kept (not defaulted). |
-| DefaultContDeductible_Flag | Indicates the contents deductible was blank/missing and filled with the user-supplied default (yes=1) |
-| geometry | Locational geometry is required for spatial analysis. |
-| Longitude | Site longitude (x) in decimal degrees |
-| Latitude | Site latitude (y) in decimal degrees |
+| FIELD | DESCRIPTION | REQUIRED |
+|:---|:---|:---|
+| ID | Unique National Structure Inventory ID, Milliman and other unique IDs may be used | Required. Unique building identifier. |
+| EqBldgTypeID or EqBldgType | Earthquake-specific building type classification ID. See eqBuildingType. | Required if EqBldgTypeClass not provided. Field mapping provided by eqBuildingType located: sphere/packages/data/src/sphere/data |
+| EqBldgTypeClass | Hazus earthquake building type classification (i.e., W1, W2, S1L). See eqBuildingType. | Required if EqBldgType not provided. |
+| LMH_Rise | Indicates building is classified as Low (<4 stories), Mid (4-7 stories), or High (>7 stories) | Optional. Useful field in summarizing results. |
+| EqDesignLe or EqDesignLevelId | Earthquake design level classification ID. Values 1 to 4 indicate code level PC, LC, MC and HC, respectively. | Required. Seismic design level controls the application of structural fragility functions. |
+| SOccupID or SOccTypeId | Hazus specific occupancy type ID | Required if Occupancy_Type is not provided. Field mapping provided by hzOccupancyClass located: sphere/packages/data/src/sphere/data |
+| Occupancy_Type | Hazus occupancy classification (i.e., RES1, COM1, IND2) | Required if SOccupID is not provided. |
+| FirstFloor or FirstFloorHt | First floor height above ground elevation (feet) | Required, flow depth – FirstFloor provides flow depth in structure. |
+| ValStruct | Building structure replacement cost (USD) | Required. |
+| ValCont | Contents replacement cost (USD) | Optional. Content losses are skipped when absent. |
+| AreaSqft | Building floor area (square feet) | Optional. Defaulted from eqBuildingArea.csv (by occupancy) when absent. |
+| CBFips | Census Block ID | Optional. |
+| SiteElevation_UserDefined_ft | Ground surface elevation when provided by the user | Optional. |
+| BldgHeight_ft | Building height in feet | Optional. Defaulted from eqBuildingType.csv when absent. |
+| DefaultBldgHeight_Flag | Indicates building height estimated using Hazus class default for Mid and High rise (yes=1) | Computed. |
+| BuildingLimit | Building (structure) insurance limit / cap (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied limit and is kept (not defaulted). | Optional. |
+| DefaultBldgCap_Flag | Indicates the building limit was blank/missing and filled with the user-supplied default (yes=1) | Computed. |
+| ContentLimit | Contents insurance limit / cap (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied limit and is kept (not defaulted). | Optional. |
+| DefaultContCap_Flag | Indicates the contents limit was blank/missing and filled with the user-supplied default (yes=1) | Computed. |
+| BuildingDeductible | Building (structure) insurance deductible (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied deductible and is kept (not defaulted). | Optional. |
+| DefaultBldgDeductible_Flag | Indicates the building deductible was blank/missing and filled with the user-supplied default (yes=1) | Computed. |
+| ContentDeductible | Contents insurance deductible (USD). A blank/missing value is filled with the user-supplied default; a value of 0 is treated as a user-supplied deductible and is kept (not defaulted). | Optional. |
+| DefaultContDeductible_Flag | Indicates the contents deductible was blank/missing and filled with the user-supplied default (yes=1) | Computed. |
+| geometry | Locational geometry is required for spatial analysis. | Required (Longitude/Latitude). |
+| Longitude | Site longitude (x) in decimal degrees | Required. |
+| Latitude | Site latitude (y) in decimal degrees | Required. |
 
 ## HAZARD
 

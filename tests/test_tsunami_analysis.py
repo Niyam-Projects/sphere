@@ -368,6 +368,7 @@ def test_ttf_aal_warns_non_monotonic_flux_values(caplog):
             'ValCont': [50_000.0] * n,
             'FirstFloor': [1.0] * n,
             'EqBldgType': ['W1'] * n,
+            'EqDesignLevelId': [1] * n,
             'MomFlux_100yr_Median': [10.0, 8.0, 6.0],
             'MomFlux_250yr_Median': [5.0, 4.0, 3.0],   # lower than 100yr → violation
             'FlowDepth_100yr_Median': [5.0, 4.0, 3.0],
@@ -409,6 +410,7 @@ def test_ttf_aal_no_warning_monotonic_flux_values(caplog):
             'ValCont': [50_000.0] * n,
             'FirstFloor': [1.0] * n,
             'EqBldgType': ['W1'] * n,
+            'EqDesignLevelId': [1] * n,
             'MomFlux_100yr_Median': [3.0, 4.0, 5.0],
             'MomFlux_250yr_Median': [6.0, 7.0, 8.0],   # higher than 100yr → OK
             'FlowDepth_100yr_Median': [3.0, 4.0, 5.0],
@@ -451,6 +453,7 @@ def _make_aal_buildings():
             'ValCont':               [50_000.0, 125_000.0],
             'FirstFloor':            [1.0, 2.0],
             'EqBldgType':            [1, 1],
+            'EqDesignLevelId':       [1, 1],
             'building_height':       [12.0, 14.0],
             'MomFlux_100yr_Median':  [5.0,  8.0],
             'MomFlux_250yr_Median':  [10.0, 15.0],
@@ -598,6 +601,7 @@ def _minimal_ttf_gdf(with_occ=False, with_soccup=True, with_eq_bldg_type=True, e
         'ValStruct': [100000.0, 200000.0],
         'ValCont': [50000.0, 100000.0],
         'FirstFloor': [1.0, 1.0],
+        'EqDesignLevelId': [1, 1],
         'MomFlux_100yr_Median_ft3_per_sec2': [10.0, 20.0],
         'FlowDepth_100yr_Median_ft': [3.0, 4.0],
         'Longitude': [-122.0, -122.1],
@@ -690,14 +694,11 @@ def test_eq_building_type_partial_fill_from_class():
     assert buildings.gdf[id_col].tolist() == [1.0, 2.0]
 
 
-def test_missing_eq_building_type_and_class_warns(caplog):
-    """Neither EqBldgType nor EqBldgTypeClass present -> warned, not raised."""
+def test_missing_eq_building_type_and_class_raises():
+    """Neither EqBldgType nor EqBldgTypeClass present -> cannot run analysis."""
     gdf = _minimal_ttf_gdf(with_occ=True, with_soccup=False, with_eq_bldg_type=False)
-    buildings = ttfBuildings(gdf=gdf)
-    with caplog.at_level(logging.WARNING):
-        ttfAALAnalysis(buildings=buildings, vulnerability_func=DefaultTsunamiVulnerability())
-
-    assert any('eq_building_type_class column is also' in r.message for r in caplog.records)
+    with pytest.raises(ValueError):
+        ttfBuildings(gdf=gdf)
 
 
 def test_eq_building_type_class_derived_from_id():

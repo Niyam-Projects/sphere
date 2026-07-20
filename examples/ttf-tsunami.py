@@ -274,6 +274,9 @@ def _():
 @app.cell
 def _(column_dict, form):
     mo.stop(form.value is None or form.value["csv_select"] is None, "Please select a CSV file to continue")
+    gdf = None
+    results = None
+    error_msg = None
     with mo.redirect_stderr():
         try:
             # _csv_file = mo.cli_args().get("file") or folder_path / form.value["csv_select"]
@@ -313,7 +316,18 @@ def _(column_dict, form):
             success = True
         except Exception as _e:
             success = False
-    return gdf, results, success
+            error_msg = str(_e)
+    return error_msg, gdf, results, success
+
+
+@app.cell
+def _(error_msg, success):
+    mo.stop(success or not error_msg)
+    mo.callout(
+        mo.md(f"### ⚠️ Analysis could not run\n\n{error_msg}"),
+        kind="danger",
+    )
+    return
 
 
 @app.cell
@@ -463,10 +477,19 @@ def _():
 @app.cell
 def _(show_datadict_button):
     if show_datadict_button.value:
-        _md_file = "Tsunami_DataDictionary.md"
-        with open(_md_file, "r") as _f:
-            _content = _f.read()
-        _display = mo.md(_content)
+        _nb_dir = mo.notebook_dir() or Path.cwd()
+        _candidates = [
+            _nb_dir / "Tsunami_DataDictionary.md",
+            _nb_dir.parent / "Tsunami_DataDictionary.md",
+            Path("Tsunami_DataDictionary.md"),
+        ]
+        _md_file = next((p for p in _candidates if p.exists()), None)
+        if _md_file:
+            _display = mo.md(_md_file.read_text(encoding="utf-8"))
+        else:
+            _display = mo.callout(
+                mo.md("`Tsunami_DataDictionary.md` not found."), kind="warn"
+            )
     else:
         _display = mo.md("")
     _display

@@ -1754,7 +1754,7 @@ wheels = [
 
 [[package]]
 name = "tsunami"
-version = "0.2.1"
+version = "0.2.2"
 source = { editable = "packages/tsunami" }
 dependencies = [
     { name = "geopandas" },

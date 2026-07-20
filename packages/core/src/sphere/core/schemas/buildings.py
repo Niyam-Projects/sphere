@@ -604,12 +604,12 @@ class ttfBuildings:
             "building_cost": ["buildingcostusd", "building_cost", "hazus_building_values", "val_struct", "cost", "replacement_cost", "building_value", "valstruct"],
             "content_cost": ["contentcostusd", "content_cost", "hazus_content_values", "val_cont", "contents_cost", "valcont"],
             "inventory_cost": ["inventorycostusd", "inventory_cost", "val_inv", "inv_cost"],
-            "first_floor_height": ["first_floor_height", "found_ht", "first_floor_ht", "ffh", "floor_height", "firstfloor"],
+            "first_floor_height": ["first_floor_height", "found_ht", "first_floor_ht", "ffh", "floor_height", "firstfloor", "firstfloorht"],
             "eq_building_type": ["eqbldgtypeid", "eqbldgtypeid_si", "eq_building_type", "earthquake_building_type", "eqbldgtype"],
             "eq_building_type_class": ["eqbldgtypeclass", "eq_building_type_class", "bldgtype"],
             "eq_design_level": ["eqdesignlevelid", "eqdesignlevelid_si", "eq_design_level", "design_level", "eqdesignle"],
             "occupancy_type": ["occupancy_type", "occtype", "occupancy", "occ_type", "building_type"],
-            "soccup_id": ["soccupid", "occupancy_id"],
+            "soccup_id": ["soccupid", "socctypeid", "occupancy_id"],
             "building_height": ["bldgheight_ft", "building_height", "bldg_height", "bldgheight", "height", "bldg_ht", ""],
             "lmh_rise": ["lmh_rise", "lmn_rise", "rise", "bldg_rise"],
             "bldg_cap": ["buildinglimit", "bldg_cap", "building_cap", "bldg_limit", "building_limit"],
@@ -773,22 +773,34 @@ class ttfBuildings:
         # Create FieldMapping first so we can query missing required fields
         self.fields = FieldMapping(gdf, aliases, output_fields, overrides)
 
-        required_field_errors = self.fields.get_missing_required_fields(
-            gdf, ["building_cost", "first_floor_height"]
-        )
-        # occupancy_type is required but may be derived from SOccupID downstream
-        # (ttfAALAnalysis maps SOccupID -> Occupancy_Type via hzOccupancyClass.csv).
-        # Only fail here if neither the occupancy_type column nor a SOccupID column exists.
-        occ_present = self.fields.get_field_name("occupancy_type") in gdf.columns
-        soccup_present = self.fields.get_field_name("soccup_id") in gdf.columns
-        if not occ_present and not soccup_present:
-            required_field_errors.append(
-                "'occupancy_type': not found and no 'SOccupID' column present to derive it from"
-            )
+        # Required-field validation. Each entry is (human-readable message, [candidate
+        # property names]); a requirement is satisfied when ANY candidate resolves to an
+        # actual column in the input. OR-groups let one field stand in for another:
+        #   - EqBldgType / EqBldgTypeClass derive each other via eqBuildingType.csv, so
+        #     either one is enough; if BOTH are absent the building type ID stays null and
+        #     losses come out as silent NaN, hence the hard check here.
+        #   - Occupancy_Type may be derived from SOccupID via hzOccupancyClass.csv downstream.
+        required_groups = [
+            ("ValStruct (building replacement cost) is required.", ["building_cost"]),
+            ("FirstFloor / FirstFloorHt (first floor height) is required.", ["first_floor_height"]),
+            ("EqDesignLe / EqDesignLevelId (earthquake design level) is required.", ["eq_design_level"]),
+            (
+                "EqBldgType or EqBldgTypeClass (building type) is required - provide at least one.",
+                ["eq_building_type", "eq_building_type_class"],
+            ),
+            (
+                "Occupancy_Type or SOccupID (occupancy) is required - provide at least one.",
+                ["occupancy_type", "soccup_id"],
+            ),
+        ]
+        required_field_errors = [
+            msg for msg, props in required_groups
+            if not any(self.fields.get_field_name(p) in gdf.columns for p in props)
+        ]
         if required_field_errors:
             raise ValueError(
-                "Input DataFrame validation failed:\n" +
-                "\n".join(f"  - {e}" for e in required_field_errors)
+                "Input data is missing required field(s):\n" +
+                "\n".join(f"- {e}" for e in required_field_errors)
             )
 
         # Warn if duplicate building IDs are present
