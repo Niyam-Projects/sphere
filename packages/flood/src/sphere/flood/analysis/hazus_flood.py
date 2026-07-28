@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from typing import TYPE_CHECKING
 from sphere.core.schemas.buildings import Buildings, BuildingsProtocol
 from sphere.core.schemas.abstract_vulnerability_function import VulnerabilityFunction
 from sphere.core.schemas.abstract_raster_reader import RasterReader
@@ -11,6 +12,9 @@ try:
 except ImportError:
     # For earlier versions, install importlib_resources
     import importlib_resources as resources
+
+if TYPE_CHECKING:
+    import duckdb
 
 
 class HazusFloodAnalysis:    
@@ -23,10 +27,13 @@ class HazusFloodAnalysis:
         """
         Initializes a HazusFloodAnalysis object.
 
+        Uses the traditional Hazus methodology for damage function assignment:
+        riverine → peril type ``R``; coastal → depth-based ``R`` / ``CA`` / ``CV``.
+
         Args:
-            buildings (BuildingPoints): BuildingPoints object.
-            vulnerability_func (VulnerabilityFunction): VulnerabilityFunction object.
-            hazard (Hazard): Hazard object.
+            buildings: Buildings object.
+            vulnerability_func: VulnerabilityFunction object.
+            depth_grid: Raster reader for flood depth values.
         """
         self.buildings: Buildings = buildings
         self.vulnerability_func = vulnerability_func
@@ -276,3 +283,189 @@ class HazusFloodAnalysis:
 
             gdf.loc[mask, self.buildings.fields.get_field_name("restoration_minimum")] = min_days_vec
             gdf.loc[mask, self.buildings.fields.get_field_name("restoration_maximum")] = max_days_vec
+
+    # -------------------------------------------------------------------------
+    # DuckDB-based pipeline methods
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _setup_spatial_extensions(conn: "duckdb.DuckDBPyConnection") -> None:
+        """Install and load DuckDB spatial and GeoArrow extensions.
+
+        Args:
+            conn: Active DuckDB connection.
+        """
+        conn.execute("INSTALL spatial; LOAD spatial;")
+        try:
+            conn.execute("CALL register_geoarrow_extensions()")
+        except Exception:
+            pass
+
+    def _create_hazard_table(self, conn: "duckdb.DuckDBPyConnection") -> None:
+        """Sample raster values at each building location and store in a ``hazard`` table.
+
+        Always samples flood depth (required).  When ``velocity_grid`` and/or
+        ``duration_grid`` are present on the analyzer, those values are sampled too
+        and stored as ``velocity`` and ``duration`` columns.  Only rows with a positive
+        depth value are included (non-flooded buildings are excluded from losses).
+
+        Hazard table columns:
+            id    - building identifier
+            depth - flood depth (ft)
+
+        Args:
+            conn: Active DuckDB connection.
+        """
+        import pyarrow as pa
+
+        gdf = self.buildings.gdf
+        geometries = gdf.geometry
+        depths = np.asarray(self.depth_grid.get_value_vectorized(geometries))
+
+        id_col = self.buildings.fields.get_field_name("id")
+        ids = gdf[id_col].values if id_col in gdf.columns else gdf.index.values
+
+        hazard_df = pd.DataFrame({"id": ids, "depth": depths})
+        hazard_df = hazard_df[hazard_df["depth"] > 0].reset_index(drop=True)
+
+        arrow_table = pa.Table.from_pandas(hazard_df)
+        conn.register("_hazard_arrow_reg", arrow_table)
+        conn.execute("DROP TABLE IF EXISTS hazard")
+        conn.execute("CREATE TABLE hazard AS SELECT * FROM _hazard_arrow_reg")
+        try:
+            conn.unregister("_hazard_arrow_reg")
+        except Exception:
+            pass
+
+    def _assign_flood_peril_type_sql(self, conn: "duckdb.DuckDBPyConnection") -> None:
+        """Assign ``flood_peril_type`` on the buildings table using traditional Hazus logic.
+
+        - Coastal (``flood_type="C"``): depth thresholds → ``R`` / ``CA`` / ``CV``
+        - Riverine (default): all buildings → ``R``
+
+        Args:
+            conn: Active DuckDB connection.  Expects ``buildings`` and ``hazard`` tables.
+        """
+        conn.execute("ALTER TABLE buildings ADD COLUMN IF NOT EXISTS flood_peril_type VARCHAR")
+        if getattr(self.vulnerability_func, "flood_type", "R") == "C":
+            self._assign_peril_coastal_depth_sql(conn)
+        else:
+            self._assign_peril_riverine_default_sql(conn)
+
+    @staticmethod
+    def _assign_peril_riverine_default_sql(conn: "duckdb.DuckDBPyConnection") -> None:
+        """Assign ``R`` (Riverine) to all buildings without a peril type.
+
+        Selects ``HazardR = 1`` curves from the xref table.
+
+        Args:
+            conn: Active DuckDB connection.
+        """
+        conn.execute("UPDATE buildings SET flood_peril_type = 'R' WHERE flood_peril_type IS NULL")
+
+    @staticmethod
+    def _assign_peril_coastal_depth_sql(conn: "duckdb.DuckDBPyConnection") -> None:
+        """Assign Hazus legacy coastal peril types based on sampled flood depth.
+
+        Thresholds:
+            depth ≥ 6 ft  → ``CV`` (Coastal Velocity)
+            depth ≥ 3 ft  → ``CA`` (Coastal Alluvial)
+            depth < 3 ft  → ``R``  (Riverine at low depths)
+
+        Args:
+            conn: Active DuckDB connection.  Expects ``buildings`` and ``hazard`` tables.
+        """
+        conn.execute("""
+            UPDATE buildings
+            SET flood_peril_type = (
+                SELECT CASE
+                           WHEN h.depth >= 6 THEN 'CV'
+                           WHEN h.depth >= 3 THEN 'CA'
+                           ELSE 'R'
+                       END
+                FROM hazard h
+                WHERE h.id = buildings.id
+                LIMIT 1
+            )
+            WHERE buildings.flood_peril_type IS NULL
+        """)
+        conn.execute("UPDATE buildings SET flood_peril_type = 'R' WHERE flood_peril_type IS NULL")
+
+    @staticmethod
+    def _calculate_losses_sql(conn: "duckdb.DuckDBPyConnection") -> None:
+        """Compute monetary losses per building and store in a ``losses`` table.
+
+        Building, content, and inventory losses are calculated as:
+            loss = cost * (damage_percent_mean / 100.0)
+
+        Missing inventory_value or damage stats are treated as 0.
+
+        Args:
+            conn: Active DuckDB connection. Expects ``buildings``,
+                  ``damage_function_statistics``, ``content_damage_function_statistics``,
+                  and ``inventory_damage_function_statistics`` tables.
+        """
+        conn.execute("DROP TABLE IF EXISTS losses")
+        conn.execute("""
+            CREATE TABLE losses AS
+            SELECT
+                b.id,
+                COALESCE(b.building_cost, 0)
+                    * COALESCE(ds.damage_percent_mean, 0) / 100.0   AS building_loss,
+                COALESCE(b.content_cost, 0)
+                    * COALESCE(cs.damage_percent_mean, 0) / 100.0   AS content_loss,
+                COALESCE(b.inventory_value, 0)
+                    * COALESCE(ivs.damage_percent_mean, 0) / 100.0  AS inventory_loss
+            FROM buildings b
+            LEFT JOIN damage_function_statistics           ds  ON b.id = ds.id
+            LEFT JOIN content_damage_function_statistics   cs  ON b.id = cs.id
+            LEFT JOIN inventory_damage_function_statistics ivs ON b.id = ivs.id
+            WHERE b.id IN (SELECT id FROM hazard)
+        """)
+
+    def calculate_losses_duckdb(self, conn: "duckdb.DuckDBPyConnection") -> pd.DataFrame:
+        """Calculate flood losses using a DuckDB-based SQL pipeline.
+
+        This is the DuckDB counterpart to :meth:`calculate_losses`.  It accepts
+        an already-open DuckDB connection so the caller controls the connection
+        lifetime (and can inspect intermediate tables afterwards).
+
+        Uses the traditional Hazus peril type assignment:
+        - ``vulnerability_func.flood_type == "C"`` (coastal): depth thresholds →
+          ``CV`` (≥ 6ft), ``CA`` (3–6ft), ``R`` (< 3ft).
+        - Riverine (default): all buildings → ``R``.
+
+        When buildings already carry pre-assigned DDF IDs (``bddf_id`` / ``cddf_id`` /
+        ``iddf_id`` in the source data), those IDs are used directly, bypassing xref
+        lookup.  Peril type only affects buildings that need xref-based DDF derivation.
+
+        Pipeline steps:
+            1. Install spatial extensions
+            2. Load buildings into ``buildings`` table (standardized schema)
+            3. Sample raster into ``hazard`` table (depth only)
+            4. Load vulnerability lookup tables (xref + DDF curves)
+            5. Assign flood peril type (traditional Hazus R / CA / CV)
+            6. Match damage functions (pre-assigned IDs first, xref fallback)
+            7. Fill missing function fallbacks
+            8. Compute interpolated damage statistics
+            9. Calculate monetary losses
+
+        Args:
+            conn: An active DuckDB connection (``duckdb.connect(":memory:")`` or
+                  a file-based connection).
+
+        Returns:
+            pd.DataFrame: Rows for flooded buildings with columns
+                ``id``, ``building_loss``, ``content_loss``, ``inventory_loss``.
+        """
+        self._setup_spatial_extensions(conn)
+        self.buildings.to_duckdb(conn)
+        self._create_hazard_table(conn)
+        self.vulnerability_func.create_vulnerability_tables(conn)
+        self._assign_flood_peril_type_sql(conn)
+        self.vulnerability_func.gather_damage_functions(conn)
+        self.vulnerability_func.gather_missing_functions(conn)
+        self.vulnerability_func.compute_damage_function_statistics(conn)
+        self._calculate_losses_sql(conn)
+        return conn.execute("SELECT * FROM losses").df()
+

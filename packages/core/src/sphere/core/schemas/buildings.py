@@ -137,7 +137,8 @@ class Buildings:
             "content_cost": ["contentcostusd", "content_cost", "val_cont", "contents_cost"],
             "inventory_cost": ["inventorycostusd", "inventory_cost", "val_inv", "inv_cost"],
             "eq_building_type": ["eqbldgtypeid", "eq_building_type", "earthquake_building_type"],
-            "eq_design_level": ["eqdesignlevelid", "eq_design_level", "design_level"], 
+            "eq_design_level": ["eqdesignlevelid", "eq_design_level", "design_level"],
+            "general_building_type": ["general_building_type", "genbuilttype", "gen_bldg_type", "bldgtype"],
             #"flood_type": ["floodtype", "flood_type", "flooding_type"],
         }
         
@@ -668,3 +669,71 @@ class Buildings:
     def probability_content_extensive(self, value: pd.Series) -> None:
         field_name = self._ensure_output_field("probability_content_extensive")
         self._gdf[field_name] = value
+
+    def to_duckdb(self, conn: Any) -> None:
+        """Load buildings into a DuckDB connection as a standardized ``buildings`` table.
+
+        The table columns always use the canonical internal property names regardless of
+        the source column names in the GeoDataFrame.  Columns absent from the
+        GeoDataFrame are created as NULL so that downstream SQL always finds the same
+        schema.
+
+        Standardized schema:
+            id, occupancy_type, first_floor_height, foundation_type,
+            number_stories, area, building_cost, content_cost,
+            inventory_value, general_building_type,
+            bddf_id, cddf_id, iddf_id (pre-existing DDF IDs, NULL when not available),
+            geometry
+
+        Args:
+            conn: An active DuckDB connection.
+        """
+        # Map from internal property name → target DuckDB column name.
+        # Note: inventory_cost becomes inventory_value to match the reference schema.
+        schema_map = {
+            "id": "id",
+            "occupancy_type": "occupancy_type",
+            "first_floor_height": "first_floor_height",
+            "foundation_type": "foundation_type",
+            "number_stories": "number_stories",
+            "area": "area",
+            "building_cost": "building_cost",
+            "content_cost": "content_cost",
+            "inventory_cost": "inventory_value",
+            "general_building_type": "general_building_type",
+            # Pre-existing damage function IDs (optional — preserved when present in source
+            # data so that DuckDB and Python paths use the same DDF curves).
+            "bddf_id": "bddf_id",
+            "cddf_id": "cddf_id",
+            "iddf_id": "iddf_id",
+        }
+
+        gdf = self._gdf
+
+        # Build ordered columns, falling back to None (NULL) when absent
+        cols: Dict[str, Any] = {}
+        for prop, target_col in schema_map.items():
+            source_col = self.fields.get_field_name(prop)
+            if source_col and source_col in gdf.columns:
+                cols[target_col] = gdf[source_col].values
+            else:
+                cols[target_col] = None
+
+        standardized = gpd.GeoDataFrame(cols, geometry=gdf.geometry, crs=gdf.crs)
+
+        # Enable spatial extensions (idempotent calls are safe)
+        conn.execute("INSTALL spatial; LOAD spatial;")
+        try:
+            conn.execute("CALL register_geoarrow_extensions()")
+        except Exception:
+            pass
+
+        arrow_table = standardized.to_arrow()
+        conn.register("_buildings_arrow_reg", arrow_table)
+        conn.execute("DROP TABLE IF EXISTS buildings")
+        conn.execute("CREATE TABLE buildings AS SELECT * FROM _buildings_arrow_reg")
+        try:
+            conn.unregister("_buildings_arrow_reg")
+        except Exception:
+            pass
+
