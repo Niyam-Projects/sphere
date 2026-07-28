@@ -1,6 +1,7 @@
 import time
 from pathlib import Path
 import pandas as pd
+import duckdb
 from sphere.flood.analysis.hazus_flood import HazusFloodAnalysis
 from sphere.flood.single_value_reader import SingleValueRaster
 from sphere.flood.default_vulnerability import DefaultFloodVulnerability
@@ -23,26 +24,43 @@ def run_fast():
     flood_function = DefaultFloodVulnerability(buildings, flood_type="R")
 
     # Create the Hazus flood analyzer instance.
-    # (Assumes that HazusFloodAnalyzer accepts buildings DataFrame, depth grid, the flood function,
-    # and geospatial metadata like transform and crs.)
     analyzer = HazusFloodAnalysis(
         buildings=buildings,
         vulnerability_func=flood_function,
         depth_grid=depth_grid,
     )
 
-    # Calculate losses using the analysis
-    analyzer.calculate_losses()  # Expected to return a DataFrame
+    # --- Python path ---
+    analyzer.calculate_losses()
 
     # Save the results to a CSV file
     results_csv = base_dir / "flood_losses.csv"
     buildings.gdf.to_csv(results_csv, index=False)
 
-    end_time = time.time()                 # Record the end time
-    elapsed_time = end_time - start_time   # Calculate the time difference
+    end_time = time.time()
+    elapsed_time = end_time - start_time
     
     print(f"Execution time: {elapsed_time:.6f} seconds")
     print(f"Flood {len(buildings.gdf):,} analysis complete. Results saved to:", results_csv)
+
+    # --- DuckDB path (file-based so you can inspect intermediate tables) ---
+    print("\nRunning DuckDB pipeline for comparison...")
+    duckdb_file = base_dir / "fast_analysis.duckdb"
+    duckdb_file.unlink(missing_ok=True)  # start fresh each run
+    duckdb_start = time.time()
+    conn = duckdb.connect(str(duckdb_file))
+    try:
+        duckdb_losses = analyzer.calculate_losses_duckdb(conn)
+    finally:
+        conn.close()
+    duckdb_elapsed = time.time() - duckdb_start
+
+    py_total = buildings.building_loss.sum()
+    ddb_total = duckdb_losses["building_loss"].sum()
+    print(f"DuckDB execution time: {duckdb_elapsed:.6f} seconds")
+    print(f"DuckDB database saved to: {duckdb_file}")
+    print(f"Python  total building loss: ${py_total:,.0f}")
+    print(f"DuckDB  total building loss: ${ddb_total:,.0f}")
 
 
 if __name__ == "__main__":
