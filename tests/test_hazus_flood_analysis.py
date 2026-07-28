@@ -6,11 +6,11 @@ import geopandas as gpd
 from sphere.flood.analysis.hazus_flood import HazusFloodAnalysis
 from sphere.flood.default_vulnerability import DefaultFloodVulnerability
 from sphere.core.schemas.buildings import Buildings
-from sphere.core.schemas.abstract_vulnerability_function import AbstractVulnerabilityFunction
-from sphere.core.schemas.abstract_raster_reader import AbstractRasterReader
+from sphere.core.schemas.abstract_vulnerability_function import VulnerabilityFunction
+from sphere.core.schemas.abstract_raster_reader import RasterReader
 
 
-class MockVulnerabilityFunction(AbstractVulnerabilityFunction):
+class MockVulnerabilityFunction:
     """Mock vulnerability function for testing."""
     
     def __init__(self, buildings):
@@ -37,7 +37,7 @@ class MockVulnerabilityFunction(AbstractVulnerabilityFunction):
         pass
 
 
-class MockFloodDepthGrid(AbstractRasterReader):
+class MockFloodDepthGrid:
     """Mock flood depth grid for testing."""
     
     def get_value(self, lon: float, lat: float) -> float:
@@ -353,7 +353,7 @@ class TestHazusFloodAnalysis:
         buildings = Buildings(gdf)
         
         # Create mock vulnerability function
-        class TestMockVulnerabilityFunction(AbstractVulnerabilityFunction):
+        class TestMockVulnerabilityFunction:
             def __init__(self, buildings):
                 self.buildings = buildings
                 

@@ -1,7 +1,121 @@
-from typing import Dict, Any
+from typing import Dict, Any, Protocol
 import geopandas as gpd
 import pandas as pd
 from sphere.core.schemas.field_mapping import FieldMapping
+
+
+class BuildingsProtocol(Protocol):
+    """Protocol for building-related data with field mapping and data access.
+
+    Any class implementing `gdf` and the key property getters/setters
+    with matching signatures satisfies this protocol, regardless of inheritance.
+    """
+
+    @property
+    def gdf(self) -> gpd.GeoDataFrame:
+        """Get the underlying GeoDataFrame."""
+        ...
+
+    @property
+    def fields(self) -> FieldMapping:
+        """Get the field mapping."""
+        ...
+
+    @property
+    def occupancy_type(self) -> pd.Series:
+        """Get occupancy type."""
+        ...
+
+    @property
+    def flood_depth(self) -> pd.Series:
+        """Get flood depth."""
+        ...
+
+    @flood_depth.setter
+    def flood_depth(self, value: pd.Series | float):
+        """Set flood depth."""
+        ...
+
+    @property
+    def first_floor_height(self) -> pd.Series:
+        """Get first floor height."""
+        ...
+
+    @property
+    def foundation_type(self) -> pd.Series:
+        """Get foundation type."""
+        ...
+
+    @property
+    def number_stories(self) -> pd.Series:
+        """Get number of stories."""
+        ...
+
+    @property
+    def area(self) -> pd.Series:
+        """Get building area."""
+        ...
+
+    @property
+    def building_cost(self) -> pd.Series:
+        """Get building cost."""
+        ...
+
+    @property
+    def content_cost(self) -> pd.Series:
+        """Get content cost."""
+        ...
+
+    @property
+    def depth_in_structure(self) -> pd.Series:
+        """Get depth in structure."""
+        ...
+
+    @depth_in_structure.setter
+    def depth_in_structure(self, value: pd.Series | float):
+        """Set depth in structure."""
+        ...
+
+    @property
+    def building_damage_percent(self) -> pd.Series:
+        """Get building damage percent."""
+        ...
+
+    @building_damage_percent.setter
+    def building_damage_percent(self, value: pd.Series | float):
+        """Set building damage percent."""
+        ...
+
+    @property
+    def content_damage_percent(self) -> pd.Series:
+        """Get content damage percent."""
+        ...
+
+    @content_damage_percent.setter
+    def content_damage_percent(self, value: pd.Series | float):
+        """Set content damage percent."""
+        ...
+
+    @property
+    def building_loss(self) -> pd.Series:
+        """Get building loss."""
+        ...
+
+    @building_loss.setter
+    def building_loss(self, value: pd.Series | float):
+        """Set building loss."""
+        ...
+
+    @property
+    def content_loss(self) -> pd.Series:
+        """Get content loss."""
+        ...
+
+    @content_loss.setter
+    def content_loss(self, value: pd.Series | float):
+        """Set content loss."""
+        ...
+
 
 class Buildings:
     """

@@ -1,15 +1,19 @@
+from typing import Protocol
 import numpy as np
 import geopandas as gpd
-from abc import ABC, abstractmethod
 
 
-class AbstractRasterReader(ABC):
-    @abstractmethod
+class RasterReader(Protocol):
+    """Protocol for reading flood depth values from raster data.
+
+    Any class implementing `get_value` and `get_value_vectorized` with
+    matching signatures satisfies this protocol, regardless of inheritance.
+    """
+
     def get_value(self, lon: float, lat: float) -> float:
-        """Returns flood depth at a given point; must be implemented by subclasses."""
-        pass
+        """Returns flood depth at a given point."""
+        ...
 
-    @abstractmethod
     def get_value_vectorized(self, geometry: gpd.GeoSeries) -> np.ndarray:
-        """Returns flood depth for multiple locations in a vectorized way; must be implemented by subclasses."""
-        pass
+        """Returns flood depth for multiple locations in a vectorized way."""
+        ...
