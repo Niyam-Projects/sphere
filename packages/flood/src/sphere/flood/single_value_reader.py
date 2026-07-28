@@ -2,9 +2,9 @@ import numpy as np
 import geopandas as gpd
 import rasterio
 import time
-from sphere.core.schemas.abstract_raster_reader import AbstractRasterReader
+from sphere.core.schemas.abstract_raster_reader import RasterReader
 
-class SingleValueRaster(AbstractRasterReader):
+class SingleValueRaster:
     def __init__(self, data_source: str, crs: str = "EPSG:4326"):
         """
         Initializes a SingleValueRaster object for reading single-value raster data.

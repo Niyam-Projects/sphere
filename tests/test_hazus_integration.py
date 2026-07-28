@@ -6,10 +6,10 @@ from pathlib import Path
 from sphere.flood.analysis.hazus_flood import HazusFloodAnalysis
 from sphere.flood.default_vulnerability import DefaultFloodVulnerability
 from .conftest import DummyBuildingPoints
-from sphere.core.schemas.abstract_raster_reader import AbstractRasterReader
+from sphere.core.schemas.abstract_raster_reader import RasterReader
 
 
-class SimpleDepthGrid(AbstractRasterReader):
+class SimpleDepthGrid:
     def __init__(self, depth_value: float):
         self.depth_value = depth_value
 

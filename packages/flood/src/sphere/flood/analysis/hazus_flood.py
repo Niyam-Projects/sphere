@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from sphere.core.schemas.buildings import Buildings
-from sphere.core.schemas.abstract_vulnerability_function import AbstractVulnerabilityFunction
-from sphere.core.schemas.abstract_raster_reader import AbstractRasterReader
+from sphere.core.schemas.buildings import Buildings, BuildingsProtocol
+from sphere.core.schemas.abstract_vulnerability_function import VulnerabilityFunction
+from sphere.core.schemas.abstract_raster_reader import RasterReader
 
 try:
     # Python 3.9+
@@ -17,8 +17,8 @@ class HazusFloodAnalysis:
     def __init__(
         self,
         buildings: Buildings,
-        vulnerability_func: AbstractVulnerabilityFunction,
-        depth_grid: AbstractRasterReader,
+        vulnerability_func: VulnerabilityFunction,
+        depth_grid: RasterReader,
     ):
         """
         Initializes a HazusFloodAnalysis object.
