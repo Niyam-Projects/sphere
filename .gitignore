@@ -430,3 +430,4 @@ examples/outputs/**
 !examples/outputs/.gitkeep
 
 .DS_Store
+__marimo__
