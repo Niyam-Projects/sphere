@@ -1,9 +1,12 @@
 import os
-from typing import Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 import duckdb
 import geopandas as gpd
 import pandas as pd
 from sphere.core.schemas.buildings import Buildings
+
+if TYPE_CHECKING:
+    from sphere.flood.single_value_reader import SingleValueRaster
 
 
 class NsiBuildings2026(Buildings):
@@ -23,10 +26,10 @@ class NsiBuildings2026(Buildings):
       parquet file** using DuckDB's native ``read_parquet()`` — no
       Python-side GeoDataFrame round-trip for the main analysis.
 
-    An optional *bbox* spatial filter ``(xmin, ymin, xmax, ymax)`` (WGS 84
-    lon/lat) limits which buildings are loaded.  When analysing a local study
-    area this dramatically reduces the working set from the nationwide 134 M
-    row dataset.
+    Buildings are spatially filtered to the **union of all supplied rasters'
+    extents** before being loaded, keeping only the rows relevant to the study
+    area.  Pass raster objects via *rasters* (preferred), or supply a raw
+    WGS 84 *bbox* tuple when working outside a notebook context.
 
     .. note::
         This class targets the **public** NSI 2026 release.  A future subclass
@@ -37,19 +40,27 @@ class NsiBuildings2026(Buildings):
     def __init__(
         self,
         parquet_file: str,
+        rasters: Optional[
+            Union["SingleValueRaster", List["SingleValueRaster"]]
+        ] = None,
         bbox: Optional[Tuple[float, float, float, float]] = None,
         overrides: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Args:
             parquet_file: Path to the NSI 2026 geoparquet file.
-            bbox: Optional bounding-box filter ``(xmin, ymin, xmax, ymax)``
-                in WGS 84 (EPSG:4326) coordinates.  When provided, only
-                buildings whose ``x``/``y`` centroid falls within the box
-                are loaded.  Derive from a raster's bounds to limit memory
-                usage when working with the nationwide dataset.
-            overrides: Optional field-name override dictionary passed to the
-                parent :class:`Buildings` constructor.
+            rasters: A :class:`~sphere.flood.single_value_reader.SingleValueRaster`
+                instance **or a list** of them (depth, velocity, duration grids).
+                The bounding-box filter is computed as the **union** of all
+                supplied rasters' extents, reprojected to WGS 84.  Pass all
+                rasters that define the study area so no buildings are missed.
+                Mutually exclusive with *bbox*; *rasters* takes precedence.
+            bbox: Fallback WGS 84 bounding-box filter
+                ``(xmin, ymin, xmax, ymax)`` used when *rasters* is ``None``.
+                Only buildings whose centroid ``(x, y)`` falls inside the box
+                are loaded.
+            overrides: Optional field-name overrides passed to the parent
+                :class:`Buildings` constructor.
         """
         drive, _ = os.path.splitdrive(parquet_file)
         if not drive:
@@ -58,10 +69,17 @@ class NsiBuildings2026(Buildings):
             parquet_path = parquet_file
 
         self._parquet_path = parquet_path
-        self._bbox = bbox
+
+        # Derive bbox from rasters when provided, otherwise use raw bbox.
+        if rasters is not None:
+            _raster_list = rasters if isinstance(rasters, list) else [rasters]
+            _raster_list = [r for r in _raster_list if r is not None]
+            self._bbox = self._bbox_from_rasters(_raster_list) if _raster_list else bbox
+        else:
+            self._bbox = bbox
 
         # Build WHERE clause used in both the gdf load and to_duckdb override.
-        self._where_clause = self._build_where_clause(bbox)
+        self._where_clause = self._build_where_clause(self._bbox)
 
         # Load a lightweight GeoDataFrame using DuckDB for fast column-subset
         # reads.  This is needed for the raster-sampling step in
@@ -71,8 +89,50 @@ class NsiBuildings2026(Buildings):
         super().__init__(gdf, overrides)
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Bbox helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _bbox_from_rasters(
+        rasters: List["SingleValueRaster"],
+    ) -> Tuple[float, float, float, float]:
+        """Return the union WGS 84 bbox covering all supplied rasters.
+
+        Each raster's CRS is detected and its bounds are reprojected to
+        EPSG:4326 (lon/lat).  The union is the smallest rectangle that
+        contains every raster's footprint.
+
+        Args:
+            rasters: Non-empty list of :class:`SingleValueRaster` instances.
+
+        Returns:
+            ``(xmin, ymin, xmax, ymax)`` in WGS 84 degrees.
+        """
+        import pyproj
+
+        all_xmin, all_ymin, all_xmax, all_ymax = [], [], [], []
+
+        for raster in rasters:
+            b = raster.data.bounds
+            crs = raster.data.crs
+
+            if crs is None or str(crs) == "EPSG:4326":
+                xmin, ymin, xmax, ymax = b.left, b.bottom, b.right, b.top
+            else:
+                transformer = pyproj.Transformer.from_crs(
+                    crs.to_epsg() or str(crs),
+                    "EPSG:4326",
+                    always_xy=True,
+                )
+                xmin, ymin = transformer.transform(b.left, b.bottom)
+                xmax, ymax = transformer.transform(b.right, b.top)
+
+            all_xmin.append(xmin)
+            all_ymin.append(ymin)
+            all_xmax.append(xmax)
+            all_ymax.append(ymax)
+
+        return (min(all_xmin), min(all_ymin), max(all_xmax), max(all_ymax))
 
     @staticmethod
     def _build_where_clause(
@@ -89,10 +149,10 @@ class NsiBuildings2026(Buildings):
     def _load_gdf(self) -> gpd.GeoDataFrame:
         """Load a subset of columns from the parquet into a GeoDataFrame.
 
-        Uses DuckDB for fast column-projection; only the columns needed for
-        field-mapping and raster sampling are read.  ``occtype`` is split at
-        the first ``-`` here so the parent class field-mapping and downstream
-        DDF lookups receive the canonical occupancy code.
+        Uses DuckDB for fast column-projection and optional bbox filtering;
+        only the columns needed for field-mapping and raster sampling are read.
+        ``occtype`` is split at the first ``-`` so downstream DDF lookups
+        receive the canonical occupancy code.
         """
         conn = duckdb.connect()
         try:
@@ -170,3 +230,4 @@ class NsiBuildings2026(Buildings):
             {self._where_clause}
             """
         )
+

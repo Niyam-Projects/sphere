@@ -365,38 +365,18 @@ def _(
 
     analysis_start = time.perf_counter()
 
-    # Step 1: Load depth raster and derive bbox for spatial pre-filter
+    # Step 1: Load hazard rasters
     with mo.status.spinner(title="Loading hazard rasters..."):
         depth_grid = SingleValueRaster(depth_raster_file)
+        velocity_grid = SingleValueRaster(velocity_raster_file) if velocity_raster_file else None
+        duration_grid = SingleValueRaster(duration_raster_file) if duration_raster_file else None
 
-        _b = depth_grid.data.bounds
-        # bbox in WGS84 lon/lat (the NSI x/y columns are in EPSG:4326)
-        # Reproject raster bounds to WGS84 if needed
-        import pyproj
-        _raster_crs = depth_grid.data.crs
-        if _raster_crs and str(_raster_crs) != "EPSG:4326":
-            _transformer = pyproj.Transformer.from_crs(
-                _raster_crs.to_epsg() or str(_raster_crs),
-                "EPSG:4326",
-                always_xy=True,
-            )
-            _xmin, _ymin = _transformer.transform(_b.left, _b.bottom)
-            _xmax, _ymax = _transformer.transform(_b.right, _b.top)
-        else:
-            _xmin, _ymin, _xmax, _ymax = _b.left, _b.bottom, _b.right, _b.top
+        # Collect all supplied rasters; NsiBuildings2026 computes the union bbox.
+        _all_rasters = [r for r in [depth_grid, velocity_grid, duration_grid] if r is not None]
 
-        bbox_filter = (_xmin, _ymin, _xmax, _ymax)
-
-        velocity_grid = None
-        duration_grid = None
-        if velocity_raster_file:
-            velocity_grid = SingleValueRaster(velocity_raster_file)
-        if duration_raster_file:
-            duration_grid = SingleValueRaster(duration_raster_file)
-
-    # Step 2: Load buildings (lightweight GeoDataFrame filtered to raster bbox)
+    # Step 2: Load buildings filtered to the union bbox of all supplied rasters
     with mo.status.spinner(title="Loading buildings for study area..."):
-        buildings = NsiBuildings2026(building_file, bbox=bbox_filter)
+        buildings = NsiBuildings2026(building_file, rasters=_all_rasters)
         _n_buildings = len(buildings.gdf)
 
     # Step 3: Set up vulnerability and analysis objects
@@ -445,7 +425,6 @@ def _(
         kind="success",
     )
     return (
-        bbox_filter,
         conn,
         duckdb_path,
         losses_df,
