@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.20.3"
+__generated_with = "0.23.15"
 app = marimo.App(width="medium", app_title="SPHERE Flood Analysis")
 
 
@@ -22,9 +22,9 @@ def _():
     from sphere.flood.single_value_reader import SingleValueRaster
 
     return (
+        DefaultFloodVulnerability,
         HazusFloodAnalysis,
         HazusFloodAnalysis2,
-        DefaultFloodVulnerability,
         NsiBuildings2026,
         Path,
         SingleValueRaster,
@@ -46,7 +46,8 @@ def _(mo):
     /// admonition | Tip
         type: info
 
-    Default paths are pre-filled based on the repository's `examples/` folder.  Edit them to point to your data files.
+    Select one or more depth rasters to analyse multiple flood scenarios in a single run.
+    Each raster produces its own interim DuckDB file; all results are merged into one wide parquet.
     ///
 
     [Documentation](https://github.com/Niyam-Projects/sphere) | [HAZUS Methodology](https://www.fema.gov/flood-maps/products-tools/hazus)
@@ -58,17 +59,19 @@ def _(mo):
 def _(mo):
     workflow_diagram = '''
     graph LR
-        A[Load Buildings] --> B[Load Hazard Raster]
-        B --> C[Sample Depths at Buildings]
-        C --> D[Match Damage Functions]
-        D --> E[Calculate Losses]
-        E --> F[Save DuckDB + Parquet]
+        A[Load Buildings] --> B[Load Depth Rasters]
+        B --> C[Filter to Union Bbox]
+        C --> D[For Each Raster]
+        D --> E[DuckDB Analysis]
+        E --> F[Per-Raster DuckDB]
+        F --> G[Merge Wide Parquet]
         style A fill:#ADD8E6
         style B fill:#ADD8E6
         style C fill:#87CEEB
         style D fill:#87CEEB
         style E fill:#4682B4,color:#fff
-        style F fill:#90EE90
+        style F fill:#4682B4,color:#fff
+        style G fill:#90EE90
     '''
     mo.accordion({
         "## 📊 Analysis Workflow": mo.mermaid(workflow_diagram)
@@ -84,7 +87,6 @@ def _(mo):
 
 @app.cell
 def _(mo, os):
-    # Default paths relative to the examples/ folder
     _notebook_dir = os.path.dirname(os.path.abspath(__file__))
     _examples_dir = os.path.dirname(_notebook_dir)
     default_examples_dir = _examples_dir
@@ -103,7 +105,7 @@ def _(mo, os):
         type: attention
 
     Click the **FOLDER ICON** to the **LEFT** of the `outputs` directory to select it.
-    A timestamped sub-folder will be created automatically for each run.
+    A timestamped sub-folder is created automatically for each run.
     ///
     """)
 
@@ -113,10 +115,6 @@ def _(mo, os):
 
 @app.cell
 def _(default_examples_dir, mo):
-    _default_buildings = os.path.join(
-        default_examples_dir, "inputs", "buildings", "nsi2026_public_wkb.parquet"
-    )
-
     building_file_selector = mo.ui.file_browser(
         initial_path=default_examples_dir,
         filetypes=[".parquet"],
@@ -134,8 +132,6 @@ def _(default_examples_dir, mo):
 
 @app.cell
 def _(mo):
-    import os as _os
-
     analysis_method_selector = mo.ui.dropdown(
         options={
             "HazusFloodAnalysis — Original HAZUS methodology (riverine/coastal)": "hazus1",
@@ -160,32 +156,32 @@ def _(mo):
 
 
 @app.cell
-def _(analysis_method_selector, default_examples_dir, mo):
+def _(analysis_method_selector, default_examples_dir, mo, os):
     _is_hazus2 = analysis_method_selector.value == "hazus2"
 
     depth_raster_selector = mo.ui.file_browser(
-        initial_path=default_examples_dir,
+        initial_path=os.path.join(default_examples_dir, "inputs", "rasters"),
         filetypes=[".tif", ".tiff"],
-        label="🌊 Depth Raster (required)",
-        multiple=False,
+        label="🌊 Depth Rasters — select one or more (required)",
+        multiple=True,
     )
 
     velocity_raster_selector = mo.ui.file_browser(
-        initial_path=default_examples_dir,
+        initial_path=os.path.join(default_examples_dir, "inputs", "rasters"),
         filetypes=[".tif", ".tiff"],
-        label="💨 Velocity Raster (optional — HazusFloodAnalysis2 only)",
+        label="💨 Velocity Raster (optional — HazusFloodAnalysis2 only, shared across all depth rasters)",
         multiple=False,
     )
 
     duration_raster_selector = mo.ui.file_browser(
-        initial_path=default_examples_dir,
+        initial_path=os.path.join(default_examples_dir, "inputs", "rasters"),
         filetypes=[".tif", ".tiff"],
-        label="⏱️ Duration Raster (optional — HazusFloodAnalysis2 only)",
+        label="⏱️ Duration Raster (optional — HazusFloodAnalysis2 only, shared across all depth rasters)",
         multiple=False,
     )
 
     _optional_rasters = mo.vstack([
-        mo.md("*Velocity and duration rasters are used by HazusFloodAnalysis2 for riverine peril classification.*"),
+        mo.md("*Velocity and duration rasters are shared across all selected depth rasters.*"),
         velocity_raster_selector,
         duration_raster_selector,
     ]) if _is_hazus2 else mo.md(
@@ -215,20 +211,20 @@ def _(mo):
 def _(
     analysis_method_selector,
     building_file_selector,
+    default_outputs_dir,
     depth_raster_selector,
     duration_raster_selector,
     flood_type_selector,
     mo,
     os,
     output_dir_input,
-    default_outputs_dir,
     validate_button,
     velocity_raster_selector,
 ):
     """Validate Configuration"""
 
     building_file = None
-    depth_raster_file = None
+    depth_raster_files = []
     velocity_raster_file = None
     duration_raster_file = None
     analysis_method = analysis_method_selector.value
@@ -251,13 +247,15 @@ def _(
             if not os.path.isfile(building_file):
                 _issues.append(f"Buildings file not found: `{building_file}`")
 
-        # Depth raster
+        # Depth rasters (one or more required)
         if len(depth_raster_selector.value) == 0:
-            _issues.append("No depth raster selected. A depth raster is required.")
+            _issues.append("No depth rasters selected. At least one depth raster is required.")
         else:
-            depth_raster_file = depth_raster_selector.value[0].path
-            if not os.path.isfile(depth_raster_file):
-                _issues.append(f"Depth raster not found: `{depth_raster_file}`")
+            for _item in depth_raster_selector.value:
+                if os.path.isfile(_item.path):
+                    depth_raster_files.append(_item.path)
+                else:
+                    _issues.append(f"Depth raster not found: `{_item.path}`")
 
         # Optional velocity/duration (HazusFloodAnalysis2 only)
         if analysis_method == "hazus2":
@@ -270,13 +268,7 @@ def _(
                 if os.path.isfile(_d):
                     duration_raster_file = _d
 
-        # Output directory
-        if output_dir_input.value and len(output_dir_input.value) > 0:
-            _output_base = str(output_dir_input.value[0].path)
-        else:
-            _output_base = default_outputs_dir
-
-        config_valid = len(_issues) == 0
+        config_valid = len(_issues) == 0 and len(depth_raster_files) > 0
 
         if _issues:
             _display = mo.callout(
@@ -284,11 +276,12 @@ def _(
                 kind="danger",
             )
         else:
+            _depth_names = ", ".join(f"`{os.path.basename(f)}`" for f in depth_raster_files)
             _summary = [
                 f"- **Analysis Method:** {analysis_method_selector.value.split('—')[0].strip()}",
                 f"- **Flood Type:** {flood_type}",
                 f"- **Buildings:** `{os.path.basename(building_file)}`",
-                f"- **Depth Raster:** `{os.path.basename(depth_raster_file)}`",
+                f"- **Depth Rasters ({len(depth_raster_files)}):** {_depth_names}",
             ]
             if velocity_raster_file:
                 _summary.append(f"- **Velocity Raster:** `{os.path.basename(velocity_raster_file)}`")
@@ -304,7 +297,7 @@ def _(
         analysis_method,
         building_file,
         config_valid,
-        depth_raster_file,
+        depth_raster_files,
         duration_raster_file,
         flood_type,
         velocity_raster_file,
@@ -320,9 +313,9 @@ def _(mo):
 
 @app.cell
 def _(
+    DefaultFloodVulnerability,
     HazusFloodAnalysis,
     HazusFloodAnalysis2,
-    DefaultFloodVulnerability,
     NsiBuildings2026,
     Path,
     SingleValueRaster,
@@ -330,7 +323,7 @@ def _(
     building_file,
     config_valid,
     default_outputs_dir,
-    depth_raster_file,
+    depth_raster_files,
     duckdb,
     duration_raster_file,
     flood_type,
@@ -341,7 +334,7 @@ def _(
     time,
     velocity_raster_file,
 ):
-    """Execute Analysis"""
+    """Execute Analysis — one DuckDB run per depth raster"""
 
     mo.stop(
         not config_valid,
@@ -360,152 +353,153 @@ def _(
     run_output_dir = os.path.join(_output_base, _timestamp)
     os.makedirs(run_output_dir, exist_ok=True)
 
-    duckdb_path = os.path.join(run_output_dir, "sphere_analysis.duckdb")
     parquet_path = os.path.join(run_output_dir, "sphere_results_wide.parquet")
 
     analysis_start = time.perf_counter()
 
-    # Step 1: Load hazard rasters
+    # Step 1: Load all rasters up front
     with mo.status.spinner(title="Loading hazard rasters..."):
-        depth_grid = SingleValueRaster(depth_raster_file)
+        depth_grids = [SingleValueRaster(f) for f in depth_raster_files]
         velocity_grid = SingleValueRaster(velocity_raster_file) if velocity_raster_file else None
         duration_grid = SingleValueRaster(duration_raster_file) if duration_raster_file else None
 
-        # Collect all supplied rasters; NsiBuildings2026 computes the union bbox.
-        _all_rasters = [r for r in [depth_grid, velocity_grid, duration_grid] if r is not None]
+        # Union bbox across all rasters for building pre-filter
+        _all_rasters = depth_grids + [r for r in [velocity_grid, duration_grid] if r is not None]
 
-    # Step 2: Load buildings filtered to the union bbox of all supplied rasters
+    # Step 2: Load buildings once, filtered to the union bbox of all rasters
     with mo.status.spinner(title="Loading buildings for study area..."):
         buildings = NsiBuildings2026(building_file, rasters=_all_rasters)
         _n_buildings = len(buildings.gdf)
 
-    # Step 3: Set up vulnerability and analysis objects
-    with mo.status.spinner(title="Initialising analysis..."):
-        if analysis_method == "hazus1":
-            vuln_func = DefaultFloodVulnerability(buildings, flood_type=flood_type)
-            analyzer = HazusFloodAnalysis(
-                buildings=buildings,
-                vulnerability_func=vuln_func,
-                depth_grid=depth_grid,
-            )
-        else:
-            # HazusFloodAnalysis2 does not use a separate vulnerability wrapper
-            analyzer = HazusFloodAnalysis2(
-                buildings=buildings,
-                depth_grid=depth_grid,
-                flood_type=flood_type,
-                velocity_grid=velocity_grid,
-                duration_grid=duration_grid,
-            )
+    # Step 3: Run DuckDB analysis for each depth raster — separate .duckdb per raster
+    # results_by_raster: {raster_stem: (losses_df, duckdb_path, elapsed_s)}
+    results_by_raster = {}
 
-    # Step 4: Run DuckDB analysis pipeline
-    with mo.status.spinner(title="Running DuckDB flood loss pipeline..."):
-        _db_start = time.perf_counter()
-        # Remove existing duckdb file if present so we start fresh
-        Path(duckdb_path).unlink(missing_ok=True)
-        conn = duckdb.connect(duckdb_path)
-        try:
-            losses_df = analyzer.calculate_losses_duckdb(conn)
-        finally:
-            # Leave the file open reference but we close it after export
-            pass
-        _db_elapsed = time.perf_counter() - _db_start
+    for _depth_grid in depth_grids:
+        _stem = Path(_depth_grid.data_source).stem
+        _duckdb_path = os.path.join(run_output_dir, f"sphere_analysis_{_stem}.duckdb")
+
+        with mo.status.spinner(title=f"Running DuckDB analysis: {_stem}..."):
+            _db_start = time.perf_counter()
+            Path(_duckdb_path).unlink(missing_ok=True)
+            _conn = duckdb.connect(_duckdb_path)
+
+            if analysis_method == "hazus1":
+                _vuln = DefaultFloodVulnerability(buildings, flood_type=flood_type)
+                _analyzer = HazusFloodAnalysis(
+                    buildings=buildings,
+                    vulnerability_func=_vuln,
+                    depth_grid=_depth_grid,
+                )
+            else:
+                _analyzer = HazusFloodAnalysis2(
+                    buildings=buildings,
+                    depth_grid=_depth_grid,
+                    flood_type=flood_type,
+                    velocity_grid=velocity_grid,
+                    duration_grid=duration_grid,
+                )
+
+            _losses = _analyzer.calculate_losses_duckdb(_conn)
+            _conn.close()
+            _elapsed = time.perf_counter() - _db_start
+
+        results_by_raster[_stem] = (_losses, _duckdb_path, _elapsed)
 
     total_elapsed = time.perf_counter() - analysis_start
 
-    mo.callout(
-        mo.md(f"""
-        ✅ **Analysis complete!**
+    # Build completion summary
+    _summary_rows = "\n".join(
+        f"  - **`{s}`** — {len(ldf):,} flooded buildings, "
+        f"${ldf['building_loss'].sum():,.0f} building loss ({el:.1f}s)"
+        for s, (ldf, _, el) in results_by_raster.items()
+    )
 
-        - Buildings in study area: **{_n_buildings:,}**
-        - Flooded buildings: **{len(losses_df):,}**
-        - DuckDB pipeline time: **{_db_elapsed:.1f}s**
-        - Total time: **{total_elapsed:.1f}s**
-        """),
+    mo.callout(
+        mo.md(
+            f"✅ **Analysis complete!**\n\n"
+            f"- Buildings in study area: **{_n_buildings:,}**\n"
+            f"- Rasters analysed: **{len(results_by_raster)}**\n"
+            + _summary_rows
+            + f"\n- Total time: **{total_elapsed:.1f}s**"
+        ),
         kind="success",
     )
-    return (
-        conn,
-        duckdb_path,
-        losses_df,
-        parquet_path,
-        run_output_dir,
-        total_elapsed,
-    )
+    return buildings, parquet_path, results_by_raster, run_output_dir, total_elapsed
 
 
 @app.cell
-def _(conn, duckdb_path, losses_df, mo, parquet_path, run_output_dir):
-    """Export Results"""
+def _(buildings, mo, parquet_path, pd, results_by_raster, run_output_dir):
+    """Export Results — merge all raster losses into one wide parquet"""
 
-    with mo.status.spinner(title="Exporting results..."):
-        # Build wide parquet by joining buildings + losses inside DuckDB
-        wide_df = conn.execute("""
-            SELECT
-                b.*,
-                l.building_loss,
-                l.content_loss,
-                l.inventory_loss
-            FROM buildings b
-            LEFT JOIN losses l ON b.id = l.id
-        """).fetchdf()
+    with mo.status.spinner(title="Exporting wide parquet..."):
+        # Start from the buildings GeoDataFrame (geometry excluded)
+        _bdf = buildings.gdf.drop(columns=["geometry"], errors="ignore")
 
-        # Write wide parquet
+        # Join each raster's losses as prefixed columns
+        wide_df = _bdf.copy()
+        for _stem, (_losses_df, _duckdb_path, _elapsed) in results_by_raster.items():
+            _renamed = _losses_df.rename(columns={
+                "building_loss":  f"building_loss_{_stem}",
+                "content_loss":   f"content_loss_{_stem}",
+                "inventory_loss": f"inventory_loss_{_stem}",
+            })
+            wide_df = wide_df.merge(
+                _renamed, left_on="fd_id", right_on="id", how="left"
+            ).drop(columns=["id"], errors="ignore")
+
         wide_df.to_parquet(parquet_path, compression="zstd", index=False)
 
-        # Close DuckDB connection — the file at duckdb_path is now fully written
-        conn.close()
-
-    _total_loss = losses_df["building_loss"].sum() if "building_loss" in losses_df.columns else 0
-    _buildings_with_loss = (losses_df["building_loss"] > 0).sum() if "building_loss" in losses_df.columns else 0
+    _duckdb_list = "\n".join(
+        f"  - **`sphere_analysis_{s}.duckdb`**" for s in results_by_raster
+    )
 
     mo.vstack([
         mo.md("## 📁 Output Files"),
         mo.callout(
-            mo.md(f"""
-            Both files saved to `{run_output_dir}`:
-
-            - **`sphere_results_wide.parquet`** — {len(wide_df):,} buildings, all columns ({len(wide_df.columns)} fields)
-            - **`sphere_analysis.duckdb`** — intermediate DuckDB database with all analysis tables
-            """),
+            mo.md(
+                f"All files saved to `{run_output_dir}`:\n\n"
+                f"- **`sphere_results_wide.parquet`** — {len(wide_df):,} buildings, "
+                f"{len(wide_df.columns)} columns\n"
+                + _duckdb_list
+            ),
             kind="success",
         ),
     ])
-    return wide_df, _total_loss, _buildings_with_loss
+    return (wide_df,)
 
 
 @app.cell
-def _(losses_df, mo, wide_df, _total_loss, _buildings_with_loss):
+def _(mo, pd, results_by_raster, wide_df):
     """Summary Statistics"""
+
+    # Per-raster stat cards
+    _cards = []
+    for _stem, (_losses_df, _dpath, _elapsed) in results_by_raster.items():
+        _total = _losses_df["building_loss"].sum() if "building_loss" in _losses_df.columns else 0
+        _cards.append(mo.stat(
+            label=_stem[:35],
+            value=f"${_total:,.0f}",
+            caption=f"{len(_losses_df):,} flooded buildings",
+            bordered=True,
+        ))
+
+    # Tabular summary per scenario
+    _loss_cols = [c for c in wide_df.columns if c.startswith("building_loss_")]
+    _summary_df = pd.DataFrame([
+        {
+            "Scenario": c.replace("building_loss_", ""),
+            "Flooded Buildings": int((wide_df[c] > 0).sum()),
+            "Total Building Loss ($)": f"${wide_df[c].sum():,.0f}",
+        }
+        for c in _loss_cols
+    ])
 
     mo.vstack([
         mo.md("## 📊 Results Summary"),
-        mo.hstack([
-            mo.stat(
-                label="Buildings in Study Area",
-                value=f"{len(wide_df):,}",
-                caption="loaded from parquet",
-            ),
-            mo.stat(
-                label="Flooded Buildings",
-                value=f"{len(losses_df):,}",
-                caption=f"{len(losses_df) / max(len(wide_df), 1) * 100:.1f}% of total",
-                bordered=True,
-            ),
-            mo.stat(
-                label="Total Building Loss",
-                value=f"${_total_loss:,.0f}",
-                caption="sum across flooded buildings",
-                bordered=True,
-            ),
-            mo.stat(
-                label="Buildings with Loss > 0",
-                value=f"{_buildings_with_loss:,}",
-                caption=f"{_buildings_with_loss / max(len(losses_df), 1) * 100:.1f}% of flooded",
-            ),
-        ], justify="space-around"),
-        mo.md("### 🔍 Loss Preview (first 100 rows)"),
-        losses_df.head(100),
+        mo.hstack(_cards, justify="space-around"),
+        mo.md("### Results by Scenario"),
+        mo.ui.table(_summary_df, selection=None),
     ])
     return
 
