@@ -81,7 +81,9 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    mo.md("## ⚙️ Analysis Configuration")
+    mo.md("""
+    ## ⚙️ Analysis Configuration
+    """)
     return
 
 
@@ -193,7 +195,11 @@ def _(analysis_method_selector, default_examples_dir, mo, os):
         depth_raster_selector,
         _optional_rasters,
     ])
-    return depth_raster_selector, duration_raster_selector, velocity_raster_selector
+    return (
+        depth_raster_selector,
+        duration_raster_selector,
+        velocity_raster_selector,
+    )
 
 
 @app.cell
@@ -211,13 +217,11 @@ def _(mo):
 def _(
     analysis_method_selector,
     building_file_selector,
-    default_outputs_dir,
     depth_raster_selector,
     duration_raster_selector,
     flood_type_selector,
     mo,
     os,
-    output_dir_input,
     validate_button,
     velocity_raster_selector,
 ):
@@ -425,28 +429,44 @@ def _(
         ),
         kind="success",
     )
-    return buildings, parquet_path, results_by_raster, run_output_dir, total_elapsed
+    return buildings, parquet_path, results_by_raster, run_output_dir
 
 
 @app.cell
 def _(buildings, mo, parquet_path, pd, results_by_raster, run_output_dir):
-    """Export Results — merge all raster losses into one wide parquet"""
+    """Export Results — aggregate losses across all rasters into one wide parquet"""
 
     with mo.status.spinner(title="Exporting wide parquet..."):
         # Start from the buildings GeoDataFrame (geometry excluded)
         _bdf = buildings.gdf.drop(columns=["geometry"], errors="ignore")
 
-        # Join each raster's losses as prefixed columns
-        wide_df = _bdf.copy()
+        # Collect per-raster loss DataFrames and union all flooded building IDs
+        _all_losses = []
         for _stem, (_losses_df, _duckdb_path, _elapsed) in results_by_raster.items():
-            _renamed = _losses_df.rename(columns={
-                "building_loss":  f"building_loss_{_stem}",
-                "content_loss":   f"content_loss_{_stem}",
-                "inventory_loss": f"inventory_loss_{_stem}",
-            })
-            wide_df = wide_df.merge(
-                _renamed, left_on="fd_id", right_on="id", how="left"
-            ).drop(columns=["id"], errors="ignore")
+            _all_losses.append(_losses_df[["id", "building_loss", "content_loss", "inventory_loss"]])
+
+        # Sum losses across all rasters per building
+        if _all_losses:
+            _combined = pd.concat(_all_losses)
+            _agg = (
+                _combined
+                .groupby("id", as_index=False)[["building_loss", "content_loss", "inventory_loss"]]
+                .sum()
+            )
+            _agg["total_loss"] = (
+                _agg["building_loss"] + _agg["content_loss"] + _agg["inventory_loss"]
+            )
+        else:
+            _agg = pd.DataFrame(
+                columns=["id", "building_loss", "content_loss", "inventory_loss", "total_loss"]
+            )
+
+        wide_df = _bdf.merge(_agg, left_on="fd_id", right_on="id", how="left").drop(
+            columns=["id"], errors="ignore"
+        )
+        # Fill buildings with no loss as 0
+        for _col in ["building_loss", "content_loss", "inventory_loss", "total_loss"]:
+            wide_df[_col] = wide_df[_col].fillna(0)
 
         wide_df.to_parquet(parquet_path, compression="zstd", index=False)
 
@@ -460,7 +480,8 @@ def _(buildings, mo, parquet_path, pd, results_by_raster, run_output_dir):
             mo.md(
                 f"All files saved to `{run_output_dir}`:\n\n"
                 f"- **`sphere_results_wide.parquet`** — {len(wide_df):,} buildings, "
-                f"{len(wide_df.columns)} columns\n"
+                f"{len(wide_df.columns)} columns "
+                f"(building_loss, content_loss, inventory_loss, total_loss summed across all rasters)\n"
                 + _duckdb_list
             ),
             kind="success",
@@ -473,32 +494,70 @@ def _(buildings, mo, parquet_path, pd, results_by_raster, run_output_dir):
 def _(mo, pd, results_by_raster, wide_df):
     """Summary Statistics"""
 
-    # Per-raster stat cards
-    _cards = []
-    for _stem, (_losses_df, _dpath, _elapsed) in results_by_raster.items():
-        _total = _losses_df["building_loss"].sum() if "building_loss" in _losses_df.columns else 0
-        _cards.append(mo.stat(
-            label=_stem[:35],
-            value=f"${_total:,.0f}",
-            caption=f"{len(_losses_df):,} flooded buildings",
-            bordered=True,
-        ))
+    # Overall totals from the wide parquet (summed across rasters)
+    _total_building = wide_df["building_loss"].sum() if "building_loss" in wide_df.columns else 0
+    _total_content  = wide_df["content_loss"].sum()  if "content_loss"  in wide_df.columns else 0
+    _total_inventory = wide_df["inventory_loss"].sum() if "inventory_loss" in wide_df.columns else 0
+    _grand_total    = wide_df["total_loss"].sum()     if "total_loss"     in wide_df.columns else 0
+    _n_with_loss    = int((wide_df["total_loss"] > 0).sum()) if "total_loss" in wide_df.columns else 0
 
-    # Tabular summary per scenario
-    _loss_cols = [c for c in wide_df.columns if c.startswith("building_loss_")]
-    _summary_df = pd.DataFrame([
-        {
-            "Scenario": c.replace("building_loss_", ""),
-            "Flooded Buildings": int((wide_df[c] > 0).sum()),
-            "Total Building Loss ($)": f"${wide_df[c].sum():,.0f}",
-        }
-        for c in _loss_cols
-    ])
+    _overall_cards = mo.hstack([
+        mo.stat(
+            label="Total Buildings",
+            value=f"{len(wide_df):,}",
+            caption="in study area",
+        ),
+        mo.stat(
+            label="Buildings with Loss",
+            value=f"{_n_with_loss:,}",
+            caption=f"{_n_with_loss / max(len(wide_df), 1) * 100:.1f}% of total",
+            bordered=True,
+        ),
+        mo.stat(
+            label="Total Building Loss",
+            value=f"${_total_building:,.0f}",
+            caption="summed across all rasters",
+            bordered=True,
+        ),
+        mo.stat(
+            label="Grand Total Loss",
+            value=f"${_grand_total:,.0f}",
+            caption="building + content + inventory",
+            bordered=True,
+        ),
+    ], justify="space-around")
+
+    # Per-raster breakdown table
+    _scenario_rows = []
+    for _stem, (_losses_df, _dpath, _elapsed) in results_by_raster.items():
+        _b = _losses_df["building_loss"].sum() if "building_loss" in _losses_df.columns else 0
+        _c = _losses_df["content_loss"].sum()  if "content_loss"  in _losses_df.columns else 0
+        _iv = _losses_df["inventory_loss"].sum() if "inventory_loss" in _losses_df.columns else 0
+        _scenario_rows.append({
+            "Scenario": _stem,
+            "Flooded Buildings": f"{len(_losses_df):,}",
+            "Building Loss ($)": f"${_b:,.0f}",
+            "Content Loss ($)":  f"${_c:,.0f}",
+            "Inventory Loss ($)": f"${_iv:,.0f}",
+            "Total Loss ($)":    f"${_b + _c + _iv:,.0f}",
+            "Runtime (s)":       f"{_elapsed:.1f}",
+        })
+    # Totals row
+    _scenario_rows.append({
+        "Scenario": "── TOTAL ──",
+        "Flooded Buildings": "",
+        "Building Loss ($)": f"${_total_building:,.0f}",
+        "Content Loss ($)":  f"${_total_content:,.0f}",
+        "Inventory Loss ($)": f"${_total_inventory:,.0f}",
+        "Total Loss ($)":    f"${_grand_total:,.0f}",
+        "Runtime (s)":       "",
+    })
+    _summary_df = pd.DataFrame(_scenario_rows)
 
     mo.vstack([
         mo.md("## 📊 Results Summary"),
-        mo.hstack(_cards, justify="space-around"),
-        mo.md("### Results by Scenario"),
+        _overall_cards,
+        mo.md("### Loss Breakdown by Scenario"),
         mo.ui.table(_summary_df, selection=None),
     ])
     return
