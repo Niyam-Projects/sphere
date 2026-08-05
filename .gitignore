@@ -421,4 +421,13 @@ examples/*.gpkg
 examples/*.parquet
 examples/*.duckdb
 
+# Example input/output data folders — ignore contents, keep skeleton
+examples/inputs/buildings/*
+examples/inputs/rasters/*
+examples/outputs/**
+!examples/inputs/buildings/.gitkeep
+!examples/inputs/rasters/.gitkeep
+!examples/outputs/.gitkeep
+
 .DS_Store
+__marimo__

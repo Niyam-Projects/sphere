@@ -42,6 +42,25 @@ uv run pytest -q
 uv run examples\fast_analysis.py
 ```
 
+4. Run the interactive flood analysis notebook with Marimo.
+
+```bash
+uv run marimo run ./examples/notebooks/run_sphere.py
+```
+
+The notebook provides a guided UI to configure and run a full HAZUS flood
+loss analysis. You can choose between two methodologies:
+
+- **Legacy HAZUS** (`HazusFloodAnalysis`) — the original riverine/coastal
+  damage function approach.
+- **Inland Consequences** (`HazusFloodAnalysis2`) — the updated methodology
+  that additionally accepts **velocity** and **duration** hazard rasters for
+  more detailed riverine peril classification (e.g. `RLS`, `RHL`) and updated
+  coastal codes (`CST`, `CMV`, `CHW`).
+
+The notebook also lets you declare whether your hazard rasters are in **feet**
+or **meters**; values are automatically converted to feet before analysis.
+
 Contributing
 Please see `CONTRIBUTING.md` for guidelines on reporting issues, proposing
 changes, running tests, and contributing patches. All contributors must
