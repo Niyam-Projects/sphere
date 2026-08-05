@@ -4,15 +4,24 @@ import rasterio
 import time
 from sphere.core.schemas.abstract_raster_reader import RasterReader
 
+_METERS_TO_FEET = 1.0 / 0.3048  # exact: 1 foot = 0.3048 m (NIST)
+
+
 class SingleValueRaster:
-    def __init__(self, data_source: str, crs: str = "EPSG:4326"):
+    def __init__(self, data_source: str, crs: str = "EPSG:4326", conversion_factor: float = 1.0):
         """
         Initializes a SingleValueRaster object for reading single-value raster data.
 
         Args:
             data_source (str): Path to the raster file.
+            crs (str): Default CRS to use when the raster has no CRS metadata.
+            conversion_factor (float): Multiplier applied to every sampled value before
+                it is returned.  Use ``1.0`` (default) when the raster is already in feet;
+                use ``_METERS_TO_FEET`` (≈ 3.2808…) when the raster is in meters so that
+                all downstream code always receives values in feet.
         """
         self.data_source = data_source
+        self.conversion_factor = conversion_factor
         self.data = rasterio.open(self.data_source)
 
         # Check if CRS is None or empty and assign default if needed
@@ -47,7 +56,7 @@ class SingleValueRaster:
                 if val[0] == self.data.nodata:
                     return np.nan  # Return NaN for NoData
                 else:
-                    return float(val[0])  # Convert to float (important if it's a numpy type)
+                    return float(val[0]) * self.conversion_factor  # Convert to float and apply unit conversion
             
             # If sample() doesn't yield any values (empty iterator)
             return np.nan
@@ -139,6 +148,7 @@ class SingleValueRaster:
             
             # Update result array at in-bounds positions with vectorized operation
             result[in_bounds_indices[valid_samples]] = samples[valid_samples].astype(float)
+            result *= self.conversion_factor  # Apply unit conversion (no-op when factor is 1.0)
             print(f"Result processing took {time.time() - raster_sample_start:.6f} seconds, {valid_count}/{in_bounds_count} valid samples of {len(geometry)} points")
         
         except rasterio.RasterioIOError as e:

@@ -182,6 +182,12 @@ def _(analysis_method_selector, default_examples_dir, mo, os):
         multiple=False,
     )
 
+    hazard_units_selector = mo.ui.radio(
+        options={"Feet (ft)": "feet", "Meters (m) — convert to feet": "meters"},
+        value="Feet (ft)",
+        label="📐 Hazard Raster Units",
+    )
+
     _optional_rasters = mo.vstack([
         mo.md("*Velocity and duration rasters are shared across all selected depth rasters.*"),
         velocity_raster_selector,
@@ -194,10 +200,13 @@ def _(analysis_method_selector, default_examples_dir, mo, os):
         mo.md("### 🗺️ Hazard Rasters"),
         depth_raster_selector,
         _optional_rasters,
+        mo.md("---"),
+        hazard_units_selector,
     ])
     return (
         depth_raster_selector,
         duration_raster_selector,
+        hazard_units_selector,
         velocity_raster_selector,
     )
 
@@ -220,6 +229,7 @@ def _(
     depth_raster_selector,
     duration_raster_selector,
     flood_type_selector,
+    hazard_units_selector,
     mo,
     os,
     validate_button,
@@ -227,12 +237,17 @@ def _(
 ):
     """Validate Configuration"""
 
+    # Exact conversion: 1 foot = 0.3048 m (NIST definition)
+    _METERS_TO_FEET = 1.0 / 0.3048
+
     building_file = None
     depth_raster_files = []
     velocity_raster_file = None
     duration_raster_file = None
     analysis_method = analysis_method_selector.value
     flood_type = flood_type_selector.value
+    hazard_units = hazard_units_selector.value
+    conversion_factor = _METERS_TO_FEET if hazard_units == "meters" else 1.0
     config_valid = False
 
     if not validate_button.value:
@@ -280,12 +295,14 @@ def _(
                 kind="danger",
             )
         else:
+            _units_label = "Meters (converting to feet)" if hazard_units == "meters" else "Feet"
             _depth_names = ", ".join(f"`{os.path.basename(f)}`" for f in depth_raster_files)
             _summary = [
                 f"- **Analysis Method:** {analysis_method_selector.value.split('—')[0].strip()}",
                 f"- **Flood Type:** {flood_type}",
                 f"- **Buildings:** `{os.path.basename(building_file)}`",
                 f"- **Depth Rasters ({len(depth_raster_files)}):** {_depth_names}",
+                f"- **Hazard Raster Units:** {_units_label} (conversion factor: {conversion_factor:.10g})",
             ]
             if velocity_raster_file:
                 _summary.append(f"- **Velocity Raster:** `{os.path.basename(velocity_raster_file)}`")
@@ -301,9 +318,11 @@ def _(
         analysis_method,
         building_file,
         config_valid,
+        conversion_factor,
         depth_raster_files,
         duration_raster_file,
         flood_type,
+        hazard_units,
         velocity_raster_file,
     )
 
@@ -326,6 +345,7 @@ def _(
     analysis_method,
     building_file,
     config_valid,
+    conversion_factor,
     default_outputs_dir,
     depth_raster_files,
     duckdb,
@@ -361,11 +381,11 @@ def _(
 
     analysis_start = time.perf_counter()
 
-    # Step 1: Load all rasters up front
+    # Step 1: Load all rasters up front (applying unit conversion factor)
     with mo.status.spinner(title="Loading hazard rasters..."):
-        depth_grids = [SingleValueRaster(f) for f in depth_raster_files]
-        velocity_grid = SingleValueRaster(velocity_raster_file) if velocity_raster_file else None
-        duration_grid = SingleValueRaster(duration_raster_file) if duration_raster_file else None
+        depth_grids = [SingleValueRaster(f, conversion_factor=conversion_factor) for f in depth_raster_files]
+        velocity_grid = SingleValueRaster(velocity_raster_file, conversion_factor=conversion_factor) if velocity_raster_file else None
+        duration_grid = SingleValueRaster(duration_raster_file, conversion_factor=conversion_factor) if duration_raster_file else None
 
         # Union bbox across all rasters for building pre-filter
         _all_rasters = depth_grids + [r for r in [velocity_grid, duration_grid] if r is not None]
