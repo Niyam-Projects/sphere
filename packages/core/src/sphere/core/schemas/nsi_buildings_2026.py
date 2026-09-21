@@ -1,12 +1,19 @@
 import os
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 import duckdb
 import geopandas as gpd
 import pandas as pd
 from sphere.core.schemas.buildings import Buildings
 
+try:
+    import importlib.resources as resources
+except ImportError:
+    import importlib_resources as resources  # type: ignore[no-redef]
+
 if TYPE_CHECKING:
     from sphere.flood.single_value_reader import SingleValueRaster
+
+CostBasis = Literal["full_replacement", "depreciated"]
 
 
 class NsiBuildings2026(Buildings):
@@ -25,6 +32,10 @@ class NsiBuildings2026(Buildings):
     - Overrides :meth:`to_duckdb` to load buildings **directly from the
       parquet file** using DuckDB's native ``read_parquet()`` — no
       Python-side GeoDataFrame round-trip for the main analysis.
+    - Supports two building/content cost bases via *cost_basis*:
+      ``"depreciated"`` (default) uses ``val_struct``/``val_cont`` directly;
+      ``"full_replacement"`` uses ``fullrep`` for building cost and derives
+      content cost as ``fullrep * hzPctContentofStructureValue[occupancy] / 100``.
 
     Buildings are spatially filtered to the **union of all supplied rasters'
     extents** before being loaded, keeping only the rows relevant to the study
@@ -45,6 +56,7 @@ class NsiBuildings2026(Buildings):
         ] = None,
         bbox: Optional[Tuple[float, float, float, float]] = None,
         overrides: Optional[Dict[str, str]] = None,
+        cost_basis: CostBasis = "depreciated",
     ) -> None:
         """
         Args:
@@ -61,7 +73,17 @@ class NsiBuildings2026(Buildings):
                 are loaded.
             overrides: Optional field-name overrides passed to the parent
                 :class:`Buildings` constructor.
+            cost_basis: ``"depreciated"`` (default) uses ``val_struct``/
+                ``val_cont`` as building/content cost. ``"full_replacement"``
+                uses ``fullrep`` as building cost and derives content cost as
+                ``fullrep * hzPctContentofStructureValue[occupancy] / 100``.
         """
+        if cost_basis not in ("full_replacement", "depreciated"):
+            raise ValueError(
+                f"cost_basis must be 'full_replacement' or 'depreciated', got {cost_basis!r}"
+            )
+        self._cost_basis = cost_basis
+
         drive, _ = os.path.splitdrive(parquet_file)
         if not drive:
             parquet_path = os.path.join(os.getcwd(), parquet_file)
@@ -146,13 +168,29 @@ class NsiBuildings2026(Buildings):
             f"AND y BETWEEN {ymin} AND {ymax}"
         )
 
+    @staticmethod
+    def _load_content_pct_table() -> pd.DataFrame:
+        """Load the occupancy → content-value-percent lookup table.
+
+        Source: ``hzPctContentofStructureValue.csv`` (Hazus default content
+        value as a percent of structure replacement cost, by occupancy type).
+        """
+        with (
+            resources.files("sphere.data")
+            .joinpath("hzPctContentofStructureValue.csv")
+            .open("r", encoding="utf-8-sig") as f
+        ):
+            return pd.read_csv(f)
+
     def _load_gdf(self) -> gpd.GeoDataFrame:
         """Load a subset of columns from the parquet into a GeoDataFrame.
 
         Uses DuckDB for fast column-projection and optional bbox filtering;
         only the columns needed for field-mapping and raster sampling are read.
         ``occtype`` is split at the first ``-`` so downstream DDF lookups
-        receive the canonical occupancy code.
+        receive the canonical occupancy code. ``building_cost``/``content_cost``
+        are derived here per :attr:`_cost_basis` so the rest of the codebase
+        (which always reads those two canonical fields) needs no changes.
         """
         conn = duckdb.connect()
         try:
@@ -167,6 +205,7 @@ class NsiBuildings2026(Buildings):
                     sqft,
                     val_struct,
                     val_cont,
+                    fullrep,
                     bldgtype,
                     x,
                     y
@@ -176,6 +215,15 @@ class NsiBuildings2026(Buildings):
             ).fetchdf()
         finally:
             conn.close()
+
+        if self._cost_basis == "full_replacement":
+            pct_table = self._load_content_pct_table()
+            pct_map = pct_table.set_index("occupancy_type")["content_value_pct"]
+            df["building_cost"] = df["fullrep"]
+            df["content_cost"] = df["fullrep"] * df["occtype"].map(pct_map) / 100.0
+        else:
+            df["building_cost"] = df["val_struct"]
+            df["content_cost"] = df["val_cont"]
 
         gdf = gpd.GeoDataFrame(
             df,
@@ -207,26 +255,44 @@ class NsiBuildings2026(Buildings):
         except Exception:
             pass
 
+        if self._cost_basis == "full_replacement":
+            pct_table = self._load_content_pct_table()
+            conn.register("_reg_content_pct", pct_table)
+            conn.execute("DROP TABLE IF EXISTS content_pct")
+            conn.execute("CREATE TABLE content_pct AS SELECT * FROM _reg_content_pct")
+            conn.unregister("_reg_content_pct")
+            building_cost_expr = "b.fullrep"
+            content_cost_expr = "b.fullrep * p.content_value_pct / 100.0"
+            join_clause = (
+                "LEFT JOIN content_pct p "
+                "ON p.occupancy_type = split_part(b.occtype, '-', 1)"
+            )
+        else:
+            building_cost_expr = "b.val_struct"
+            content_cost_expr = "b.val_cont"
+            join_clause = ""
+
         conn.execute("DROP TABLE IF EXISTS buildings")
         conn.execute(
             f"""
             CREATE TABLE buildings AS
             SELECT
-                fd_id                                  AS id,
-                split_part(occtype, '-', 1)            AS occupancy_type,
-                found_ht                               AS first_floor_height,
-                found_type                             AS foundation_type,
-                num_story                              AS number_stories,
-                sqft                                   AS area,
-                val_struct                             AS building_cost,
-                val_cont                               AS content_cost,
+                b.fd_id                                AS id,
+                split_part(b.occtype, '-', 1)          AS occupancy_type,
+                b.found_ht                             AS first_floor_height,
+                b.found_type                           AS foundation_type,
+                b.num_story                            AS number_stories,
+                b.sqft                                 AS area,
+                {building_cost_expr}                   AS building_cost,
+                {content_cost_expr}                    AS content_cost,
                 NULL::DOUBLE                           AS inventory_value,
-                bldgtype                               AS general_building_type,
+                b.bldgtype                             AS general_building_type,
                 NULL::VARCHAR                          AS bddf_id,
                 NULL::VARCHAR                          AS cddf_id,
                 NULL::VARCHAR                          AS iddf_id,
-                shape                                  AS geometry
-            FROM read_parquet('{self._parquet_path}')
+                b.shape                                AS geometry
+            FROM read_parquet('{self._parquet_path}') b
+            {join_clause}
             {self._where_clause}
             """
         )

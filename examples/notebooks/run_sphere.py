@@ -124,12 +124,22 @@ def _(default_examples_dir, mo):
         multiple=False,
     )
 
+    cost_basis_selector = mo.ui.radio(
+        options={
+            "Use Full Replacement Cost for Building and Contents (fullrep + hzPctContentofStructureValue)": "full_replacement",
+            "Use Depreciated Cost for Building and Contents (val_struct + val_cont)": "depreciated",
+        },
+        value="Use Depreciated Cost for Building and Contents (val_struct + val_cont)",
+        label="💰 Building/Content Cost Basis",
+    )
+
     mo.vstack([
         mo.md("### 🏗️ Building Inventory"),
         mo.md("Select the NSI 2026 geoparquet buildings file."),
         building_file_selector,
+        cost_basis_selector,
     ])
-    return (building_file_selector,)
+    return building_file_selector, cost_basis_selector
 
 
 @app.cell
@@ -226,6 +236,7 @@ def _(mo):
 def _(
     analysis_method_selector,
     building_file_selector,
+    cost_basis_selector,
     depth_raster_selector,
     duration_raster_selector,
     flood_type_selector,
@@ -247,6 +258,7 @@ def _(
     analysis_method = analysis_method_selector.value
     flood_type = flood_type_selector.value
     hazard_units = hazard_units_selector.value
+    cost_basis = cost_basis_selector.value
     conversion_factor = _METERS_TO_FEET if hazard_units == "meters" else 1.0
     config_valid = False
 
@@ -301,6 +313,7 @@ def _(
                 f"- **Analysis Method:** {analysis_method_selector.value.split('—')[0].strip()}",
                 f"- **Flood Type:** {flood_type}",
                 f"- **Buildings:** `{os.path.basename(building_file)}`",
+                f"- **Cost Basis:** {'Full Replacement' if cost_basis == 'full_replacement' else 'Depreciated'}",
                 f"- **Depth Rasters ({len(depth_raster_files)}):** {_depth_names}",
                 f"- **Hazard Raster Units:** {_units_label} (conversion factor: {conversion_factor:.10g})",
             ]
@@ -319,6 +332,7 @@ def _(
         building_file,
         config_valid,
         conversion_factor,
+        cost_basis,
         depth_raster_files,
         duration_raster_file,
         flood_type,
@@ -346,6 +360,7 @@ def _(
     building_file,
     config_valid,
     conversion_factor,
+    cost_basis,
     default_outputs_dir,
     depth_raster_files,
     duckdb,
@@ -392,7 +407,7 @@ def _(
 
     # Step 2: Load buildings once, filtered to the union bbox of all rasters
     with mo.status.spinner(title="Loading buildings for study area..."):
-        buildings = NsiBuildings2026(building_file, rasters=_all_rasters)
+        buildings = NsiBuildings2026(building_file, rasters=_all_rasters, cost_basis=cost_basis)
         _n_buildings = len(buildings.gdf)
 
     # Step 3: Run DuckDB analysis for each depth raster — separate .duckdb per raster
