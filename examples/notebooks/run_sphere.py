@@ -99,6 +99,7 @@ def _(mo, os):
         filetypes=None,
         selection_mode="directory",
         multiple=False,
+        restrict_navigation=False,
         label="💾 Output Directory (click the folder icon to select)",
     )
 
@@ -122,6 +123,7 @@ def _(default_examples_dir, mo):
         filetypes=[".parquet"],
         label="🏢 NSI 2026 Buildings Parquet File",
         multiple=False,
+        restrict_navigation=False,
     )
 
     cost_basis_selector = mo.ui.radio(
@@ -176,6 +178,7 @@ def _(analysis_method_selector, default_examples_dir, mo, os):
         filetypes=[".tif", ".tiff"],
         label="🌊 Depth Rasters — select one or more (required)",
         multiple=True,
+        restrict_navigation=False,
     )
 
     velocity_raster_selector = mo.ui.file_browser(
@@ -183,6 +186,7 @@ def _(analysis_method_selector, default_examples_dir, mo, os):
         filetypes=[".tif", ".tiff"],
         label="💨 Velocity Raster (optional — HazusFloodAnalysis2 only, shared across all depth rasters)",
         multiple=False,
+        restrict_navigation=False,
     )
 
     duration_raster_selector = mo.ui.file_browser(
@@ -190,6 +194,7 @@ def _(analysis_method_selector, default_examples_dir, mo, os):
         filetypes=[".tif", ".tiff"],
         label="⏱️ Duration Raster (optional — HazusFloodAnalysis2 only, shared across all depth rasters)",
         multiple=False,
+        restrict_navigation=False,
     )
 
     hazard_units_selector = mo.ui.radio(
