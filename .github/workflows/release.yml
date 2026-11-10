@@ -1,41 +1,80 @@
 name: Release package
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'sphere-v*'
 
+permissions:
+  contents: read
+
 jobs:
-  publish:
+  # Build and test without any publishing credentials, so third-party code
+  # run here (build backends, test deps) can never mint a PyPI token.
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Install uv (astral-sh)
-        uses: astral-sh/setup-uv@v2
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: '3.11'
 
+      - name: Check tag matches project version
+        run: |
+          version="$(uv version --short)"
+          if [ "${GITHUB_REF_NAME#sphere-v}" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match pyproject version $version"
+            exit 1
+          fi
+
       - name: Build wheels for package and workspace deps
-        run: |
-          uv build --all-packages
+        run: uv build --all-packages
 
-      - name: Run tests (uv)
-        run: |
-          uv run pytest -q
+      - name: Run tests
+        run: uv run pytest -q
 
-      - name: Build and upload (uv publish)
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          # publish using uv which handles upload and index settings
-          uv publish --check-url https://pypi.org/simple/ --token "$UV_PUBLISH_TOKEN"  
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/niyamit-sphere/
+    permissions:
+      id-token: write # PyPI Trusted Publishing (OIDC), no stored token
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Publish
+        run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
 
       - name: Create GitHub Release
-        # This action creates a release and uploads the built package files as assets.
-        uses: softprops/action-gh-release@v2
-        with:
-          # This attaches all files from the 'dist' directory (your built wheel and tar.gz)
-          # to the release.
-          files: dist/*
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes

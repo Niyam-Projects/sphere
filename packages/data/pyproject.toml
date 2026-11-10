@@ -1,15 +1,21 @@
 [project]
 name = "sphere-data"
-version = "0.1.3"
-description = "Add your description here"
+version = "0.3.0"
+description = "HAZUS lookup tables and damage curves used by SPHERE."
+license = { text = "MIT" }
 readme = "README.md"
 authors = [
-    { name = "Troy Schmidt", email = "schmidt.troy@gmail.com" }
+    { name = "NiyamIT, Inc.", email = "info@niyamit.com" }
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "sphere-core",
+    "sphere-core==0.3.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Niyam-Projects/sphere"
+Issues = "https://github.com/Niyam-Projects/sphere/issues"
+Changelog = "https://github.com/Niyam-Projects/sphere/blob/main/CHANGELOG.md"
 
 [project.scripts]
 sphere-data = "sphere.data:main"

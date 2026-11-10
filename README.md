@@ -1,6 +1,8 @@
 # SPHERE: Spatial Platform for Hazard Evaluation and Risk Estimation
 
 [![Open in molab](https://molab.marimo.io/molab-shield.png)](https://molab.marimo.io/notebooks/nb_VuW2QsspDTotm1GR9LD9JU)
+[![CI](https://github.com/Niyam-Projects/sphere/actions/workflows/ci.yml/badge.svg)](https://github.com/Niyam-Projects/sphere/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Niyam-Projects/sphere/blob/main/examples/hazus_csv_sample.ipynb)
 
 
@@ -39,7 +41,7 @@ uv run pytest -q
 3. Explore examples in the `examples/` directory.
 
 ```powershell
-uv run examples\fast_analysis.py
+uv run examples/fast_analysis.py
 ```
 
 4. Run the interactive flood analysis notebook with Marimo.
@@ -70,47 +72,13 @@ Contact
 For questions and larger design discussions, please open an issue on the
 project GitHub repository.
 
-Development
------------
-
-There are two convenient ways to work with the workspace packages locally:
-
-- Lightweight dev environment using `PYTHONPATH` (recommended for quick development):
-
-	- Linux/macOS:
-
-		```bash
-		source scripts/dev.env
-		uv run pytest -q
-		```
-
-	- Windows PowerShell:
-
-		```powershell
-		.\scripts\dev.env.ps1
-		uv run pytest -q
-		```
-
-	This sets `PYTHONPATH` so imports like `import sphere.core` resolve against the
-	in-repo sources without installing packages into your virtualenv.
-
--- Meta package (`sphere-meta`): a minimal aggregator distribution that depends on
-	`sphere-core`, `sphere-data`, and `sphere-flood`. You can build and install
-	`libs/sphere-meta` if you want a single installable package that pulls the
-	three distributions from PyPI.
-
-	```powershell
-	cd libs/sphere-meta
-	uv run python -m build -w
-	python -m pip install dist\sphere_meta-0.1.0-py3-none-any.whl
-	```
-
-CI notes
+Citation
 --------
 
-In CI, prefer one of these two approaches:
+If you use SPHERE in research, please cite it using `CITATION.cff`
+(GitHub's "Cite this repository" button).
 
-- Set `PYTHONPATH` (fast): add the paths to `GITHUB_ENV` so tests can import the
-	in-repo packages.
-- Build wheels for each package and install them (strict): build and install
-	wheels in the job before running tests.
+Security
+--------
+
+Please report vulnerabilities privately; see `SECURITY.md`.
