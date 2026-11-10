@@ -1,32 +1,37 @@
 name: TestPyPI Release
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'test-sphere-v*'
 
+permissions:
+  contents: read
+
 jobs:
   publish-test:
     runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/niyamit-sphere/
+    permissions:
+      contents: read
+      id-token: write # PyPI Trusted Publishing (OIDC), no stored token
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Install uv (astral-sh)
-        uses: astral-sh/setup-uv@v2
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: '3.11'
 
       - name: Build wheels for package and workspace deps
-        run: |
-          uv build --all-packages
+        run: uv build --all-packages
 
-      - name: Run tests (uv)
-        run: |
-          uv run pytest -q
+      - name: Run tests
+        run: uv run pytest -q
 
-      - name: Build and upload to TestPyPI (uv publish)
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        run: |
-          uv publish --publish-url https://test.pypi.org/legacy/ --check-url https://test.pypi.org/simple --token "$UV_PUBLISH_TOKEN"
+      - name: Publish
+        run: uv publish --trusted-publishing always --publish-url https://test.pypi.org/legacy/ --check-url https://test.pypi.org/simple/

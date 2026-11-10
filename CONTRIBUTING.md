@@ -1,58 +1,101 @@
-Thank you for your interest in contributing to this project!
+# Contributing to SPHERE
 
-This repository contains a modern reimplementation of HAZUS flood
-vulnerability methodology. We welcome bug reports, feature requests, and
-pull requests. By contributing you agree that your contributions will be
-licensed under the project's MIT License.
+Thank you for your interest in contributing! SPHERE is a modern
+reimplementation of the HAZUS flood vulnerability methodology. We welcome bug
+reports, feature requests, and pull requests.
 
-Getting started
-- Fork the repository and create a topic branch for your change.
-- Keep changes small and focused — one logical change per branch/PR.
-- Write tests for bug fixes and new features where applicable.
+By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+By contributing you agree that your contributions are licensed under the
+project's [MIT License](LICENSE).
 
-Development environment
-1. Create and activate a virtual environment (Python 3.10+).
+## Roles
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -U pip
-python -m pip install -e .[dev]
+| Role | Who | Can |
+|---|---|---|
+| Maintainers | [`@Niyam-Projects/opensource-maintainers`](https://github.com/orgs/Niyam-Projects/teams/opensource-maintainers) | Review and merge PRs (code owners), triage, cut releases |
+| Committers | Invited collaborators with Write access | Push branches to this repo, open PRs from them, triage issues |
+| Contributors | Everyone else | Open issues, open PRs from a fork |
+
+`main` is protected: every change lands through a pull request with passing
+CI and an approving review from a maintainer.
+
+## Getting started
+
+1. **Contributors:** fork the repository and create a topic branch from `main`.
+   **Committers and maintainers:** push a branch to this repository directly
+   (e.g. `feat/short-name`, `fix/issue-123`); no fork needed.
+2. Keep changes small and focused: one logical change per pull request.
+3. Add or update tests for bug fixes and new features.
+
+## Development environment
+
+The project uses [uv](https://docs.astral.sh/uv/) and a uv workspace
+(`packages/core`, `packages/data`, `packages/flood`). Python 3.10+ is required.
+
+```bash
+uv sync --all-packages
+uv run pytest -q
 ```
 
-2. Run tests:
+## Code style
 
-```powershell
-pytest
-```
+- Follow the existing style. Use type annotations and clear docstrings.
+- New modules need unit tests; update the README or docs when behavior changes.
 
-Code style
-- Follow existing project style. We use type annotations and aim for
-  clear, well-documented code.
-- If adding new modules, include unit tests and update the README or other
-  documentation if necessary.
+## Commits and pull requests
 
-Commit messages and PRs
-- Use clear, descriptive commit messages. Keep commits focused and logical.
-- When opening a PR, describe the problem, how your change fixes it, and
-  any testing instructions.
+- Write clear commit messages; we suggest
+  [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:` ...).
+- Pull requests are squash-merged into `main` and need passing CI and a
+  maintainer review.
+- In the PR description, explain the problem, how your change fixes it, and
+  how you tested it. Add a line to `CHANGELOG.md` under **Unreleased** for
+  user-visible changes.
 
-Reporting issues
-- Please file issues using the issue tracker. Include a minimal reproduction
-  case and any relevant logs or input data.
+## Reporting issues
 
-Security
-- Do not include secrets or credentials in the repository. If you discover a
-  security vulnerability, please report it privately via the repository
-  maintainer contact instead of opening a public issue.
+File issues with the issue templates. Include a minimal reproduction and any
+relevant logs or input data (with sensitive data removed).
 
-License and Copyright
-- By contributing, you agree that your contributions are licensed under the
-  MIT License included with the project.
+New issues are labeled `needs-triage`. A maintainer or committer reviews them,
+applies labels (`bug`, `enhancement`, `good first issue`, ...), and removes
+`needs-triage`. Pull requests automatically request review from the
+maintainers team via `.github/CODEOWNERS`.
 
-Code of Conduct
-- Be respectful and helpful in discussions and reviews. Maintainers reserve
-  the right to close or reject contributions that do not adhere to project
-  standards or community guidelines.
+## Releasing (maintainers)
 
-Thank you for helping improve this project!
+Packages are published to PyPI by `.github/workflows/release.yml` using
+[Trusted Publishing](https://docs.pypi.org/trusted-publishers/) — there are
+no API tokens.
+
+All four distributions (`niyamit-sphere`, `sphere-core`, `sphere-data`,
+`sphere-flood`) share **one version** and pin each other exactly
+(`sphere-core==X.Y.Z`); `tests/test_versions_lockstep.py` fails CI otherwise.
+
+1. Open a release PR that:
+   - sets the new version everywhere and relocks:
+     `uv run python scripts/set_version.py X.Y.Z`;
+   - moves the **Unreleased** notes in `CHANGELOG.md` under the new version
+     and updates `version`/`date-released` in `CITATION.cff`.
+2. Merge it, then tag the merge commit on `main` and push the tag:
+
+   ```bash
+   git switch main && git pull
+   git tag -a sphere-vX.Y.Z -m "sphere vX.Y.Z"
+   git push origin sphere-vX.Y.Z
+   ```
+
+3. The workflow checks that the tag matches the `pyproject.toml` version, runs
+   the tests, and then waits for a maintainer to approve the `pypi`
+   environment. After approval it publishes all four packages and creates the
+   GitHub Release.
+
+To rehearse, push a `test-sphere-vX.Y.Z` tag; it publishes to TestPyPI
+instead.
+
+## Security
+
+Never commit secrets or credentials. **Do not open public issues for
+vulnerabilities** — see [SECURITY.md](SECURITY.md) for private reporting.
+
+Thank you for helping improve SPHERE!

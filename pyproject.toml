@@ -1,17 +1,22 @@
 [project]
 name = "niyamit-sphere"
-version = "0.2.0"
+version = "0.3.0"
 description = "A modern Python implementation of HAZUS flood methodology for building vulnerability and loss estimation."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [ { name = "NiyamIT, Inc." } ]
+authors = [ { name = "NiyamIT, Inc.", email = "info@niyamit.com" } ]
 dependencies = [
     "marimo>=0.23.15",
-    "sphere-core",
-    "sphere-data",
-    "sphere-flood",
+    "sphere-core==0.3.0",
+    "sphere-data==0.3.0",
+    "sphere-flood==0.3.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Niyam-Projects/sphere"
+Issues = "https://github.com/Niyam-Projects/sphere/issues"
+Changelog = "https://github.com/Niyam-Projects/sphere/blob/main/CHANGELOG.md"
 
 [project.scripts]
 sphere = "sphere:main"

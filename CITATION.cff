@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use SPHERE in your research, please cite it as below."
+title: "SPHERE: Spatial Platform for Hazard Evaluation and Risk Estimation"
+type: software
+authors:
+  - name: "NiyamIT, Inc."
+    email: info@niyamit.com
+repository-code: "https://github.com/Niyam-Projects/sphere"
+license: MIT
+version: 0.2.0
+date-released: "2025-09-22"
+keywords:
+  - HAZUS
+  - flood
+  - vulnerability
+  - loss estimation
+  - natural hazards

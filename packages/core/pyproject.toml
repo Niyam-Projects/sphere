@@ -1,10 +1,11 @@
 [project]
 name = "sphere-core"
-version = "0.2.0"
-description = "Add your description here"
+version = "0.3.0"
+description = "Core schemas and protocols for the SPHERE hazard loss estimation platform."
+license = { text = "MIT" }
 readme = "README.md"
 authors = [
-    { name = "Troy Schmidt", email = "tschmidt@niyamit.com" }
+    { name = "NiyamIT, Inc.", email = "info@niyamit.com" }
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -12,6 +13,11 @@ dependencies = [
     "geopandas>=1.1.1",
     "pyarrow>=18.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Niyam-Projects/sphere"
+Issues = "https://github.com/Niyam-Projects/sphere/issues"
+Changelog = "https://github.com/Niyam-Projects/sphere/blob/main/CHANGELOG.md"
 
 [project.scripts]
 sphere-core = "sphere.core:main"
