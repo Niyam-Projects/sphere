@@ -4,7 +4,7 @@ version = "0.3.0"
 description = "A modern Python implementation of HAZUS flood methodology for building vulnerability and loss estimation."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 authors = [ { name = "NiyamIT, Inc.", email = "info@niyamit.com" } ]
 dependencies = [
     "marimo>=0.23.15",

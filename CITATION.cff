@@ -6,7 +6,7 @@ authors:
   - name: "NiyamIT, Inc."
     email: info@niyamit.com
 repository-code: "https://github.com/Niyam-Projects/sphere"
-license: MIT
+license: Apache-2.0
 version: 0.2.0
 date-released: "2025-09-22"
 keywords:

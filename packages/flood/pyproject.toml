@@ -2,7 +2,7 @@
 name = "sphere-flood"
 version = "0.3.0"
 description = "HAZUS flood vulnerability and loss analysis for SPHERE."
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 readme = "README.md"
 authors = [
     { name = "NiyamIT, Inc.", email = "info@niyamit.com" }
