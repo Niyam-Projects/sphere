@@ -7,6 +7,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- `sphere.data.ddf_schema`: enums and column schemas for the damage-function
+  CSVs, with tests that check every row and pin the known issues in the forked
+  data (duplicate curve IDs, blank rows, curves over 100% or decreasing with depth).
 - Full-replacement cost basis option for NSI 2026 buildings.
 - Interactive Marimo notebook, multi-raster analysis, and feet/meters unit conversion.
 - DuckDB-based flood analysis pipeline with updated damage function methodology.

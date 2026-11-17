@@ -376,19 +376,7 @@ class TestFullPipeline2:
             conn.close()
 
 
-class TestShippedDDFTables:
-    """Every lookup row must point at a curve that exists (issue #15)."""
-
-    @pytest.mark.parametrize("kind", ["contents", "structure", "inventory"])
-    def test_lookup_ids_exist_in_curve_table(self, duckdb_conn, kind):
-        HazusFloodAnalysis2._create_vulnerability_tables(None, duckdb_conn)
-        xref = "xref_structures" if kind == "structure" else f"xref_{kind}"
-        missing = duckdb_conn.execute(f"""
-            SELECT DISTINCT damage_function_id FROM {xref}
-            WHERE damage_function_id NOT IN (SELECT DDF_ID FROM damage_curves_{kind})
-        """).fetchall()
-        assert missing == []
-
+class TestShippedDataFiles:
     def test_inland_license_ships_with_data(self):
         from importlib import resources
 
