@@ -1,8 +1,7 @@
-"""Schema and enum checks for every row of the shipped damage-function CSVs.
+"""Schema and enum checks for the damage-function lookup and curve CSVs.
 
-The CSVs are a fork of fema-ffrd/inland-consequences (see THIRD_PARTY_NOTICES.md).
-No test names a specific damage-function ID. Curve checks cover the curves the
-lookups use, since only those can reach a loss calculation.
+Every lookup row is checked against its schema, and every curve a lookup uses
+is checked against the curve schema.
 """
 from __future__ import annotations
 
