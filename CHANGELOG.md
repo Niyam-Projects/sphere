@@ -7,6 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- `sphere.data.ddf_schema`: enums and column schemas for the damage-function
+  CSVs, with tests that check every lookup row and every curve a lookup uses.
 - Full-replacement cost basis option for NSI 2026 buildings.
 - Interactive Marimo notebook, multi-raster analysis, and feet/meters unit conversion.
 - DuckDB-based flood analysis pipeline with updated damage function methodology.
@@ -17,6 +19,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
   exactly (`sphere-core==0.3.0`), so installs always get a tested-together set.
 - Releases publish to PyPI via Trusted Publishing (OIDC) instead of API tokens.
 - Expanded `SECURITY.md`, `CODE_OF_CONDUCT.md`, and `CONTRIBUTING.md`.
+- Forked the structure and contents damage curves and lookups from the latest
+  Inland Consequences DDF library; SPHERE now maintains them.
+  `HazusFloodAnalysis2` results change.
+- Added MIT attribution for the Inland Consequences DDF files
+  (`THIRD_PARTY_NOTICES.md`, plus the license shipped in `sphere-data`).
+
+### Fixed
+- Contents lookup pointed at 21 missing curves, so many buildings got $0
+  contents loss in `HazusFloodAnalysis2` (#15).
+- `HazusFloodAnalysis2` mapped foundation codes wrongly: slab, crawl, and fill
+  (and numeric NSI codes) now map as Inland does (#15).
 
 ## [0.2.0] - 2025-09-22
 

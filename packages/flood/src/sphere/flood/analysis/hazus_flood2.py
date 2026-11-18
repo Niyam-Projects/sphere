@@ -4,8 +4,8 @@ damage-function methodology.
 Key differences from ``HazusFloodAnalysis``:
 
 * Uses the new lookup tables (``df_lookup_structures/contents/inventory.csv``)
-  and damage curves (``damage_curves_structure/contents/inventory.csv``) copied
-  from the inland-consequences project.
+  and damage curves (``damage_curves_structure/contents/inventory.csv``), forked
+  from the inland-consequences project (see ``THIRD_PARTY_NOTICES.md``).
 * Riverine peril type is determined by velocity **and** duration:
   ``R`` + ``H/L`` (velocity) + ``L/S`` (duration) → e.g. ``RLS``, ``RHL``.
   Requires ``velocity_grid`` and ``duration_grid`` rasters.  Falls back to
@@ -192,23 +192,30 @@ class HazusFloodAnalysis2:
         """Convert building foundation type codes to the 4-word codes used by the
         new lookup tables: ``BASEMENT``, ``PILE``, ``SHALLOW``, ``SLAB``.
 
-        Mapping:
-            ``B``, ``4``, ``2``          → ``BASEMENT``
-            ``W``, ``P``, ``I``, ``C``,
-            ``M``, ``3``                 → ``PILE``
-            ``F``, ``S``, ``1``          → ``SHALLOW``
+        Mapping matches Inland's NSI loader (Hazus letter / NSI numeric code):
+            ``I`` / ``1`` (pile)                       → ``PILE``
+            ``P`` / ``2`` (pier), ``W`` / ``3`` (solid
+            wall), ``C`` / ``5`` (crawl)               → ``SHALLOW``
+            ``B`` / ``4`` (basement)                   → ``BASEMENT``
+            ``F`` / ``6`` (fill), ``S`` / ``7`` (slab) → ``SLAB``
             Already-full-word codes are left unchanged.
         """
+        # Numeric NSI codes arrive as an integer column, which can't hold the words.
+        conn.execute("ALTER TABLE buildings ALTER foundation_type TYPE VARCHAR")
         conn.execute("""
             UPDATE buildings
-            SET foundation_type = CASE
-                WHEN UPPER(CAST(foundation_type AS VARCHAR)) IN ('BASEMENT') THEN 'BASEMENT'
-                WHEN UPPER(CAST(foundation_type AS VARCHAR)) IN ('PILE')     THEN 'PILE'
-                WHEN UPPER(CAST(foundation_type AS VARCHAR)) IN ('SHALLOW')  THEN 'SHALLOW'
-                WHEN UPPER(CAST(foundation_type AS VARCHAR)) IN ('SLAB')     THEN 'SLAB'
-                WHEN CAST(foundation_type AS VARCHAR) IN ('B', '4', '2')     THEN 'BASEMENT'
-                WHEN CAST(foundation_type AS VARCHAR) IN ('W', 'P', 'I', 'C', 'M', '3') THEN 'PILE'
-                WHEN CAST(foundation_type AS VARCHAR) IN ('F', 'S', '1')     THEN 'SHALLOW'
+            SET foundation_type = CASE UPPER(CAST(foundation_type AS VARCHAR))
+                WHEN 'BASEMENT' THEN 'BASEMENT'
+                WHEN 'PILE'     THEN 'PILE'
+                WHEN 'SHALLOW'  THEN 'SHALLOW'
+                WHEN 'SLAB'     THEN 'SLAB'
+                WHEN 'I' THEN 'PILE'     WHEN '1' THEN 'PILE'
+                WHEN 'P' THEN 'SHALLOW'  WHEN '2' THEN 'SHALLOW'
+                WHEN 'W' THEN 'SHALLOW'  WHEN '3' THEN 'SHALLOW'
+                WHEN 'B' THEN 'BASEMENT' WHEN '4' THEN 'BASEMENT'
+                WHEN 'C' THEN 'SHALLOW'  WHEN '5' THEN 'SHALLOW'
+                WHEN 'F' THEN 'SLAB'     WHEN '6' THEN 'SLAB'
+                WHEN 'S' THEN 'SLAB'     WHEN '7' THEN 'SLAB'
                 ELSE NULL
             END
         """)

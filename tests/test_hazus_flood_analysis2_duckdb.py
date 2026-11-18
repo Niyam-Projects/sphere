@@ -294,23 +294,27 @@ class TestFoundationNormalization:
         for i, code in enumerate(codes):
             conn.execute(f"INSERT INTO buildings VALUES ({i}, '{code}')")
 
-    def test_basement_codes(self, duckdb_conn):
-        self._build_table(duckdb_conn, ["B", "4", "2"])
+    @pytest.mark.parametrize(
+        "codes, expected",
+        [
+            (["B", "4"], "BASEMENT"),
+            (["I", "1"], "PILE"),
+            (["P", "2", "W", "3", "C", "5"], "SHALLOW"),
+            (["F", "6", "S", "7"], "SLAB"),
+        ],
+    )
+    def test_hazus_and_nsi_numeric_codes(self, duckdb_conn, codes, expected):
+        self._build_table(duckdb_conn, codes)
         HazusFloodAnalysis2._normalize_foundation_types(duckdb_conn)
         result = duckdb_conn.execute("SELECT DISTINCT foundation_type FROM buildings").df()["foundation_type"].tolist()
-        assert set(result) == {"BASEMENT"}
+        assert set(result) == {expected}
 
-    def test_pile_codes(self, duckdb_conn):
-        self._build_table(duckdb_conn, ["W", "P", "I", "C"])
+    def test_integer_column_is_converted(self, duckdb_conn):
+        duckdb_conn.execute("DROP TABLE IF EXISTS buildings")
+        duckdb_conn.execute("CREATE TABLE buildings AS SELECT * FROM (VALUES (1, 7), (2, 4)) t(id, foundation_type)")
         HazusFloodAnalysis2._normalize_foundation_types(duckdb_conn)
-        result = duckdb_conn.execute("SELECT DISTINCT foundation_type FROM buildings").df()["foundation_type"].tolist()
-        assert set(result) == {"PILE"}
-
-    def test_shallow_codes(self, duckdb_conn):
-        self._build_table(duckdb_conn, ["F", "S", "1"])
-        HazusFloodAnalysis2._normalize_foundation_types(duckdb_conn)
-        result = duckdb_conn.execute("SELECT DISTINCT foundation_type FROM buildings").df()["foundation_type"].tolist()
-        assert set(result) == {"SHALLOW"}
+        result = duckdb_conn.execute("SELECT foundation_type FROM buildings ORDER BY id").df()["foundation_type"].tolist()
+        assert result == ["SLAB", "BASEMENT"]
 
     def test_full_word_codes_unchanged(self, duckdb_conn):
         self._build_table(duckdb_conn, ["BASEMENT", "PILE", "SHALLOW", "SLAB"])
@@ -370,3 +374,11 @@ class TestFullPipeline2:
             assert len(result) > 0
         finally:
             conn.close()
+
+
+class TestShippedDataFiles:
+    def test_inland_license_ships_with_data(self):
+        from importlib import resources
+
+        license_text = resources.files("sphere.data").joinpath("LICENSE-inland-consequences").read_text()
+        assert "Copyright (c) 2025 fema-ffrd" in license_text
