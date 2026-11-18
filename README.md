@@ -2,7 +2,7 @@
 
 [![Open in molab](https://molab.marimo.io/molab-shield.png)](https://molab.marimo.io/notebooks/nb_VuW2QsspDTotm1GR9LD9JU)
 [![CI](https://github.com/Niyam-Projects/sphere/actions/workflows/ci.yml/badge.svg)](https://github.com/Niyam-Projects/sphere/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Niyam-Projects/sphere/blob/main/examples/hazus_csv_sample.ipynb)
 
 
@@ -23,7 +23,7 @@ Key features
 - Test coverage under `tests/`
 
 License
-This code is released under the MIT License — see `LICENSE` for details.
+This code is released under the Apache License 2.0 — see `LICENSE` for details.
 
 Quick start
 1. Create a virtual environment (Python 3.10+).
@@ -66,7 +66,7 @@ or **meters**; values are automatically converted to feet before analysis.
 Contributing
 Please see `CONTRIBUTING.md` for guidelines on reporting issues, proposing
 changes, running tests, and contributing patches. All contributors must
-agree to the project's MIT license by submitting pull requests.
+agree to the project's Apache 2.0 license by submitting pull requests.
 
 Contact
 For questions and larger design discussions, please open an issue on the

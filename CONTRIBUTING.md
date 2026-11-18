@@ -6,7 +6,7 @@ reports, feature requests, and pull requests.
 
 By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 By contributing you agree that your contributions are licensed under the
-project's [MIT License](LICENSE).
+project's [Apache License 2.0](LICENSE).
 
 ## Roles
 
